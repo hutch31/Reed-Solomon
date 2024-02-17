@@ -45,12 +45,9 @@ class GfPolyEvalTest(RsTest):
         self.reset = self.dut.reset
         
         # Connect Error locator
-        for i in range(T_LEN+1):
-            self.error_locator_if.append(eval(f"self.dut.io_errLocator_{i}"))
-        self.error_locator_sel = self.dut.io_errLocatorSel
-
-        err_loc_test = eval('self.dut.io_errLocator_'+'8')
-        print(f"err_loc_test={type(err_loc_test)}")
+        for i in range(T_LEN):            
+            self.error_locator_if.append(eval(f"self.dut.io_errLocatorIf_errLocator_{i}"))
+        self.error_locator_sel = self.dut.io_errLocatorIf_errLocatorSel
         self.s_if = AxisIf(aclk=self.clock,
                            tdata=self.dut.io_inSymb_bits,
                            tvalid=self.dut.io_inSymb_valid,
@@ -64,7 +61,7 @@ class GfPolyEvalTest(RsTest):
 
         
     def build_env(self):
-        self.s_drv = AxisDriver(name='s_drv', axis_if=self.s_if, flow_ctrl='some_valid_some_nonvalid')
+        self.s_drv = AxisDriver(name='s_drv', axis_if=self.s_if, flow_ctrl='flow_en')
         self.m_mon = AxisMonitor(name='m_mon', axis_if=self.m_if)
         self.comp = Comparator(name='comparator')
         
@@ -85,7 +82,6 @@ class GfPolyEvalTest(RsTest):
 
         syndrome = rs_calc_syndromes(cor_msg.data, ROOTS_NUM)
         self.error_locator = rs_find_error_locator(syndrome, ROOTS_NUM)[::-1]
-        print(f"err_loc = {self.error_locator}")
         self.symb_pkt = Packet(name=f'sym_pkt')
         self.symb_pkt.generate(K_LEN)
         self.symb_pkt.print_pkt()
@@ -102,12 +98,13 @@ class GfPolyEvalTest(RsTest):
             await RisingEdge(self.clock)
             
         # Set local error locator
-        for i in range(len(self.error_locator)):
-            self.error_locator_if[T_LEN-i].value = self.error_locator[i]
+        for i in range(len(self.error_locator)-1):
+            print(f"error_locator[{i}] = {self.error_locator[i+1]}")
+            self.error_locator_if[i].value = self.error_locator[i+1]
 
         error_locator_sel = 0    
         for i in range (len(self.error_locator)-1):
-            error_locator_sel = 1 << i
+            error_locator_sel = error_locator_sel | 1 << i
         self.error_locator_sel.value = error_locator_sel
         
         await self.s_drv.send_pkt(self.symb_pkt)

@@ -6,6 +6,7 @@ import scala.collection.mutable.ArrayBuffer
 trait GfParams {
 
   val symbWidth = 8
+  val symbNum = 1 << symbWidth
   val poly = 285
   val field_charac = (1 << symbWidth)-1
 
@@ -13,6 +14,28 @@ trait GfParams {
   val kLen = 239
   val redundancy = nLen - kLen
   val tLen = (redundancy/2).toInt
+
+  //////////////////////////////
+  // Chien parameterization
+  //////////////////////////////
+
+  val chienRootsPerCycle = 16
+  val chienRootsNum = symbNum - 2
+  val chienNonValid = chienRootsNum % chienRootsPerCycle
+  //val chienCyclesNum = calcChienCyclesNum(chienRootsNum, chienRootsPerCycle)
+  //val chienCntrWidth = clog2(chienCyclesNum)
+
+  class ErrLocatorBundle extends Bundle {
+    val errLocator = Vec(tLen, UInt(symbWidth.W))
+    val errLocatorSel = UInt(tLen.W)
+  }
+
+  def calcChienCyclesNum (rootsNum: Int, rootsPerCycle: Int): Int = {
+    if(rootsNum % rootsPerCycle == 0)
+      (rootsNum/rootsPerCycle).toInt
+    else
+      (rootsNum/rootsPerCycle).toInt + 1
+  }
 
   //////////////////////////////
   // Block parameterization

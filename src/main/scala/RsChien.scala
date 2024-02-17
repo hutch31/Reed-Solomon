@@ -5,27 +5,15 @@ import chisel3.util.ImplicitConversions.intToUInt
 import circt.stage.ChiselStage
 import chisel3.util._
 
-class GfMult extends Module with GfParams {
-  val io = IO(new Bundle {
-    val inSymbA = Input(UInt(symbWidth.W))
-    val inSymbB = Input(UInt(symbWidth.W))
-    val outMult = Output(UInt(symbWidth.W))
-  })
-
-  io.outMult := gfMult(io.inSymbA, io.inSymbB)
-
-}
-
 class GfPolyEval extends Module with GfParams {
   val io = IO(new Bundle {
-    val errLocator = Input(Vec(tLen+1, UInt(symbWidth.W)))
-    val errLocatorSel = Input(UInt(tLen.W))
+    //val errLocator = Input(Vec(tLen, UInt(symbWidth.W)))
+    //val errLocatorSel = Input(UInt(tLen.W))
+    val errLocatorIf = Input(new ErrLocatorBundle)
     val inSymb = Input(Valid(UInt(symbWidth.W)))
     val evalValue = Output(Valid(UInt(symbWidth.W)))
     val prioEnvOut = Output(UInt(clog2(tLen).W))
   })
-
-  println("Prio width", clog2(tLen))
 
   class SymbXorVld extends Bundle {
     val xor = UInt(symbWidth.W)
@@ -49,7 +37,7 @@ class GfPolyEval extends Module with GfParams {
       prePipe(i).valid := postPipe(i-1).valid
       prePipe(i).symb := postPipe(i-1).symb
     }
-    prePipe(i).xor := gfMultIntrm(i) ^ io.errLocator(tLen-1-i)
+    prePipe(i).xor := gfMultIntrm(i) ^ io.errLocatorIf.errLocator(i)
   }
 
   /////////////////////////////////////////
@@ -88,18 +76,64 @@ class GfPolyEval extends Module with GfParams {
   
   io.prioEnvOut := 0.U
   for(i <- (0 until tLen)) {
-    when(io.errLocatorSel(i) === 1) {
+    when(io.errLocatorIf.errLocatorSel(i) === 1) {
       io.prioEnvOut := i.U
     }
   }
 
-  //io.prioEnvOut := Reverse(io.errLocatorSel)
-
   io.evalValue.valid := prePipe(io.prioEnvOut).valid
   io.evalValue.bits := prePipe(io.prioEnvOut).xor
+  
 
 }
 
+//class RsChien extends Module with GfParams {
+//  val io = IO(new Bundle {
+//    val errLocatorIf = Input(Valid(new ErrLocatorBundle())
+//    val evalValue = Output(Valid(UInt(symbWidth.W)))
+//  })
+//
+//  val polyEval = for(i <- 0 until chienRootsPerCycle) yield Module(new GfPolyEval())
+//  val base = Wire(Vec(chienRootsPerCycle, symbWidth))
+//  val roots = Wire(Vec(chienRootsPerCycle, symbWidth))
+//
+//  // Generates Chien roots
+//  for(i <- 0 until chienRootsPerCycle) {
+//    base := i.U
+//  }
+//
+//  if(chienRootsPerCycle == 1) {
+//    roots := base
+//  } else {
+//
+//    val cntr = Reg(UInt(clog(chienCyclesNum.W)))
+//    val offset = Reg(UInt(symbWidth.W))
+//
+//    when(errLocator.valid === 1) {
+//      when(cntr !== (chienCyclesNum-1).U) {
+//        cntr := cntr + 1.U
+//        offset := offset + chienRootsPerCycle
+//      } otherwise {
+//        cntr := 0.U
+//        offset := 0.U
+//      }
+//    }
+//
+//    roots := base + offset
+//
+//  }
+//
+//  // Connect GfPolyEval and roots
+//  for(i <- 0 until chienRootsPerCycle) {
+//    polyEval.io.ErrlocatorIf <> io.errlocatorif
+//  }
+//
+//
+//  
+//
+//
+//}
+//
 // runMain Rs.GenTest
 object GenTest extends App {
   ChiselStage.emitSystemVerilogFile(new GfPolyEval(), Array())
