@@ -12,7 +12,6 @@ class GfPolyEval extends Module with GfParams {
     val errLocatorIf = Input(new ErrLocatorBundle)
     val inSymb = Input(Valid(UInt(symbWidth.W)))
     val evalValue = Output(Valid(UInt(symbWidth.W)))
-    val prioEnvOut = Output(UInt(clog2(tLen).W))
   })
 
   class SymbXorVld extends Bundle {
@@ -73,69 +72,83 @@ class GfPolyEval extends Module with GfParams {
   /////////////////////////////////////////
   // Add registers
   /////////////////////////////////////////
-  
-  io.prioEnvOut := 0.U
+  val prioEnvOut = Wire(UInt(log2Ceil(tLen).W))
+
+  prioEnvOut := 0.U
   for(i <- (0 until tLen)) {
     when(io.errLocatorIf.errLocatorSel(i) === 1) {
-      io.prioEnvOut := i.U
+      prioEnvOut := i.U
     }
   }
 
-  io.evalValue.valid := prePipe(io.prioEnvOut).valid
-  io.evalValue.bits := prePipe(io.prioEnvOut).xor
+  io.evalValue.valid := prePipe(prioEnvOut).valid
+  io.evalValue.bits := prePipe(prioEnvOut).xor
   
 
 }
 
-//class RsChien extends Module with GfParams {
-//  val io = IO(new Bundle {
-//    val errLocatorIf = Input(Valid(new ErrLocatorBundle())
-//    val evalValue = Output(Valid(UInt(symbWidth.W)))
-//  })
-//
-//  val polyEval = for(i <- 0 until chienRootsPerCycle) yield Module(new GfPolyEval())
-//  val base = Wire(Vec(chienRootsPerCycle, symbWidth))
-//  val roots = Wire(Vec(chienRootsPerCycle, symbWidth))
-//
-//  // Generates Chien roots
-//  for(i <- 0 until chienRootsPerCycle) {
-//    base := i.U
-//  }
-//
-//  if(chienRootsPerCycle == 1) {
-//    roots := base
-//  } else {
-//
-//    val cntr = Reg(UInt(clog(chienCyclesNum.W)))
-//    val offset = Reg(UInt(symbWidth.W))
-//
-//    when(errLocator.valid === 1) {
-//      when(cntr !== (chienCyclesNum-1).U) {
-//        cntr := cntr + 1.U
-//        offset := offset + chienRootsPerCycle
-//      } otherwise {
-//        cntr := 0.U
-//        offset := 0.U
-//      }
-//    }
-//
-//    roots := base + offset
-//
-//  }
-//
-//  // Connect GfPolyEval and roots
-//  for(i <- 0 until chienRootsPerCycle) {
-//    polyEval.io.ErrlocatorIf <> io.errlocatorif
-//  }
-//
-//
-//  
-//
-//
-//}
+class RsChien extends Module with GfParams {
+  val io = IO(new Bundle {
+    val errLocatorIf = Input(Valid(new ErrLocatorBundle()))
+    val bitPos = Output(Valid(UInt(chienRootsPerCycle.W)))
+    //val bitPosOut = Output(Valid(Vec(chienCyclesNum, UInt(chienRootsPerCycle.W))))
+  })
+
+  val polyEval = for(i <- 0 until chienRootsPerCycle) yield Module(new GfPolyEval())
+  val base = Wire(Vec(chienRootsPerCycle, UInt(symbWidth.W)))
+  val roots = Wire(Valid(Vec(chienRootsPerCycle, UInt(symbWidth.W))))
+  val evalValue = Wire(Vec(chienRootsPerCycle, Valid(UInt(symbWidth.W))))
+  //val bitPos = Wire(Valid(UInt(chienRootsPerCycle.W)))
+  // Generates Chien roots
+  for(i <- 0 until chienRootsPerCycle) {
+    base(i) := i.U
+  }
+
+  if(chienRootsPerCycle == 1) {
+    roots.bits := base
+    roots.valid := io.errLocatorIf.valid
+  } else {
+
+    val cntr = Reg(UInt(log2Ceil(chienCyclesNum).W))
+    val offset = Reg(UInt(symbWidth.W))
+
+    when(io.errLocatorIf.valid === 1) {
+      when(cntr =/= (chienCyclesNum-1).U) {
+        cntr := cntr + 1.U
+        offset := offset + chienRootsPerCycle
+      } otherwise {
+        cntr := 0.U
+        offset := 0.U
+      }
+    }
+
+    for(i <- 0 until chienRootsPerCycle) {
+      roots.bits(i) := base(i) + offset
+    }
+    roots.valid := io.errLocatorIf.valid | (cntr =/= 0)
+
+  }
+
+  // Connect GfPolyEval
+  for(i <- 0 until chienRootsPerCycle) {
+    polyEval(i).io.errLocatorIf <> io.errLocatorIf.bits
+    polyEval(i).io.inSymb.bits := roots.bits(i)
+    polyEval(i).io.inSymb.valid := roots.valid
+    polyEval(i).io.evalValue <> evalValue(i)
+    when(evalValue(i).bits === 0.U) {
+      io.bitPos.bits(i) := 0
+    } otherwise {
+      io.bitPos.bits(i) := 1
+    }
+  }
+
+
+}
+
+
 //
 // runMain Rs.GenTest
 object GenTest extends App {
   ChiselStage.emitSystemVerilogFile(new GfPolyEval(), Array())
-  //ChiselStage.emitSystemVerilogFile(new GfMult(), Array())
+  ChiselStage.emitSystemVerilogFile(new RsChien(), Array())
 }

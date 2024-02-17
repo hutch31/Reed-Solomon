@@ -2,6 +2,7 @@ package Rs
 
 import chisel3._
 import scala.collection.mutable.ArrayBuffer
+import chisel3.util.{log2Ceil}
 
 trait GfParams {
 
@@ -22,8 +23,8 @@ trait GfParams {
   val chienRootsPerCycle = 16
   val chienRootsNum = symbNum - 2
   val chienNonValid = chienRootsNum % chienRootsPerCycle
-  //val chienCyclesNum = calcChienCyclesNum(chienRootsNum, chienRootsPerCycle)
-  //val chienCntrWidth = clog2(chienCyclesNum)
+  val chienCyclesNum = calcChienCyclesNum(chienRootsNum, chienRootsPerCycle)
+  val chienCntrWidth = log2Ceil(chienCyclesNum)
 
   class ErrLocatorBundle extends Bundle {
     val errLocator = Vec(tLen, UInt(symbWidth.W))
@@ -61,7 +62,7 @@ trait GfParams {
         alpha_to_symb += (alpha_to_symb(i-1) << 1) ^ poly
       else
         alpha_to_symb += (alpha_to_symb(i-1) << 1)
-      println(alpha_to_symb(i))
+      //println(alpha_to_symb(i))
     }
     alpha_to_symb.toSeq
   }
