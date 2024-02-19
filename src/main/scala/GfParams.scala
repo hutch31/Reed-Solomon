@@ -22,7 +22,7 @@ trait GfParams {
 
   val chienRootsPerCycle = 16
   val chienRootsNum = symbNum - 2
-  val chienNonValid = chienRootsNum % chienRootsPerCycle
+  val chienNonValid = ((1 << (chienRootsNum % chienRootsPerCycle)) -1).U
   val chienCyclesNum = calcChienCyclesNum(chienRootsNum, chienRootsPerCycle)
   val chienCntrWidth = log2Ceil(chienCyclesNum)
 
