@@ -26,6 +26,31 @@ trait GfParams {
   val chienCyclesNum = calcChienCyclesNum(chienRootsNum, chienRootsPerCycle)
   val chienCntrWidth = log2Ceil(chienCyclesNum)
 
+  class NumPosIf extends Bundle {
+    val valid = Bool()
+    val sel   = Vec(tLen, Bool())
+    val pos   = Vec(tLen, UInt(symbWidth.W))
+  }
+
+  class BitPosIf extends Bundle {
+    val valid = Bool()
+    val last  = Bool()
+    val pos   = UInt(chienRootsPerCycle.W)
+  }
+
+  class PosBaseLastVld extends Bundle {
+    val pos = UInt(chienRootsPerCycle.W)
+    val base = UInt(symbWidth.W)
+    val valid = Bool()
+    val last  = Bool()
+  }
+
+  class PosBaseVld extends Bundle {
+    val pos = UInt(chienRootsPerCycle.W)
+    val base = UInt(symbWidth.W)
+    val valid = Bool()
+  }
+
   class ErrLocatorBundle extends Bundle {
     val errLocator = Vec(tLen, UInt(symbWidth.W))
     val errLocatorSel = UInt(tLen.W)
@@ -36,6 +61,20 @@ trait GfParams {
       (rootsNum/rootsPerCycle).toInt
     else
       (rootsNum/rootsPerCycle).toInt + 1
+  }
+
+  def ohToNum(ohPos: UInt, base: UInt) : UInt = {
+    val baseArray = Wire(Vec(chienRootsPerCycle, UInt(symbWidth.W)))
+    val baseArrayAndSel = Wire(Vec(chienRootsPerCycle, UInt(symbWidth.W)))
+    for(i <- 0 until chienRootsPerCycle) {
+      baseArray(i) := base + i.U
+      when(ohPos(i) === 1.U) {
+        baseArrayAndSel(i) := baseArray(i)
+      }.otherwise{
+        baseArrayAndSel(i) := 0.U
+      }
+    }
+    baseArrayAndSel.reduce(_ | _)
   }
 
   //////////////////////////////
@@ -50,7 +89,7 @@ trait GfParams {
   //////////////////////////////
   // Block parameterization
   //////////////////////////////
-
+  val ffStepPosToNum = 4
   val ffStepPolyEval = 4
   val ffNumPolyEVal = (tLen/ffStepPolyEval).toInt-1
 
