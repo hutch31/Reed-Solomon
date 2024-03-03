@@ -7,8 +7,6 @@ import chisel3.util._
 
 class GfPolyEval extends Module with GfParams {
   val io = IO(new Bundle {
-    //val errLocator = Input(Vec(tLen, UInt(symbWidth.W)))
-    //val errLocatorSel = Input(UInt(tLen.W))
     val errLocatorIf = Input(new ErrLocatorBundle)
     val inSymb = Input(Valid(UInt(symbWidth.W)))
     val evalValue = Output(Valid(UInt(symbWidth.W)))
@@ -17,22 +15,23 @@ class GfPolyEval extends Module with GfParams {
   class SymbXorVld extends Bundle {
     val xor = UInt(symbWidth.W)
     val symb = UInt(symbWidth.W)
-    val valid = Bool()
   }
 
   val gfMultIntrm = Wire(Vec(tLen, UInt(symbWidth.W)))
 
   val prePipe = Wire(Vec(tLen, new SymbXorVld))
   val postPipe = Wire(Vec(tLen-1, new SymbXorVld))
+  val prePipeVld = Wire(Vec(tLen, Bool()))
+  val postPipeVld = Wire(Vec(tLen-1, Bool()))
 
   for(i <- 0 until tLen) {
     if(i == 0) {
       gfMultIntrm(i) := gfMult(1, io.inSymb.bits)
-      prePipe(i).valid := io.inSymb.valid
+      prePipeVld(i) := io.inSymb.valid
       prePipe(i).symb := io.inSymb.bits
     }else {
       gfMultIntrm(i) := gfMult(postPipe(i-1).xor, postPipe(i-1).symb)
-      prePipe(i).valid := postPipe(i-1).valid
+      prePipeVld(i) := postPipeVld(i-1)
       prePipe(i).symb := postPipe(i-1).symb
     }
     prePipe(i).xor := gfMultIntrm(i) ^ io.errLocatorIf.errLocator(i)
@@ -42,31 +41,12 @@ class GfPolyEval extends Module with GfParams {
   // Pipeline the comb logic if requred
   /////////////////////////////////////////
 
-  // TODO: add reset for VLD
-  //val pipeXorQ = Reg(Vec(ffNumPolyEVal, UInt(symbWidth.W)))
-  //val pipeSymbQ = Reg(Vec(ffNumPolyEVal, UInt(symbWidth.W)))
-  //val pipeVldQ = RegInit(0.U(ffNumPolyEVal.W))
-  //
-  //for(i <- 0 until ffNumPolyEVal) {
-  //  pipeXorQ(i) := prePipe((i*ffStepPolyEval)+ffStepPolyEval-1).xor
-  //  pipeSymbQ(i) := prePipe((i*ffStepPolyEval)+ffStepPolyEval-1).symb
-  //  pipeVldQ(i) := prePipe((i*ffStepPolyEval)+ffStepPolyEval-1).valid
-  //  postPipe((i*ffStepPolyEval)+ffStepPolyEval-1).xor := pipeXorQ(i)
-  //  postPipe((i*ffStepPolyEval)+ffStepPolyEval-1).symb := pipeSymbQ(i)
-  //  postPipe((i*ffStepPolyEval)+ffStepPolyEval-1).valid := pipeVldQ(i)
-  //}
+  val pipe = Module(new pipeline(new SymbXorVld, ffStepPolyEval, tLen, true))
 
-  val pipeQ = Reg(Vec(tLen, new SymbXorVld))
-  
-  for(i <- 0 until ffNumPolyEVal) {
-    pipeQ(i) := prePipe((i*ffStepPolyEval)+ffStepPolyEval-1)
-    postPipe((i*ffStepPolyEval)+ffStepPolyEval-1) := pipeQ(i)
-  }
-
-  for(i <- 0 until tLen) {
-    if((i+1) % ffStepPolyEval != 0)
-      postPipe(i) := prePipe(i)
-  }
+  pipe.io.prePipe := prePipe
+  pipe.io.prePipeVld.get := prePipeVld
+  postPipe := pipe.io.postPipe
+  postPipeVld := pipe.io.postPipeVld.get
 
   // Add registers
   val prioEnvOut = Wire(UInt(log2Ceil(tLen).W))
@@ -78,7 +58,7 @@ class GfPolyEval extends Module with GfParams {
     }
   }
 
-  io.evalValue.valid := prePipe(prioEnvOut).valid
+  io.evalValue.valid := prePipeVld(prioEnvOut)
   io.evalValue.bits := prePipe(prioEnvOut).xor
   
 
@@ -91,7 +71,7 @@ class GfPolyEval extends Module with GfParams {
 class RsChienGetBitPos extends Module with GfParams {
   val io = IO(new Bundle {
     val errLocatorIf = Input(Valid(new ErrLocatorBundle()))
-    val bitPos = Output(Valid(UInt(chienRootsPerCycle.W)))
+    val bitPos = Output(new BitPosIf)
   })
 
   val polyEval = for(i <- 0 until chienRootsPerCycle) yield Module(new GfPolyEval())
@@ -117,11 +97,11 @@ class RsChienGetBitPos extends Module with GfParams {
     when(io.errLocatorIf.valid === 1.U) {
       cntr := cntr + 1.U
       offset := offset + chienRootsPerCycle
-    } .elsewhen(cntr =/= 0.U) {
+    }.elsewhen(cntr =/= 0.U) {
       when(cntr =/= (chienCyclesNum-1).U) {
         cntr := cntr + 1.U
         offset := offset + chienRootsPerCycle
-      } .otherwise {
+      }.otherwise {
         cntr := 0.U
         offset := 0.U
       }
@@ -152,21 +132,22 @@ class RsChienGetBitPos extends Module with GfParams {
   // We can use any Valid here, so take (0)
   bitPosVld := polyEval(0).io.evalValue.valid
 
-  //
   val lastCycle = Wire(Bool())
   when(polyEval(0).io.evalValue.valid === 0.U & bitPosVld === 1.U){
     lastCycle := 1
+    io.bitPos.last := 1
   }.otherwise{
     lastCycle := 0
+    io.bitPos.last := 0
   }
 
   io.bitPos.valid := bitPosVld
 
   when(lastCycle & chienRootsPerCycle =/= 0.U) {
     // Nulify bits that is not valid.
-    io.bitPos.bits := bitPos.asTypeOf(UInt(chienRootsPerCycle.W)) & chienNonValid
+    io.bitPos.pos := bitPos.asTypeOf(UInt(chienRootsPerCycle.W)) & chienNonValid
   }.otherwise{
-    io.bitPos.bits := bitPos.asTypeOf(UInt(chienRootsPerCycle.W))
+    io.bitPos.pos := bitPos.asTypeOf(UInt(chienRootsPerCycle.W))
   }
   
 }
@@ -174,6 +155,8 @@ class RsChienGetBitPos extends Module with GfParams {
 /////////////////////////////////////////
 // RsChienGetBitPos 
 /////////////////////////////////////////
+
+// TODO: Add error when bitPos > tLen
 
 class RsChienBitPosToNum extends Module with GfParams {
   val io = IO(new Bundle {
@@ -186,18 +169,27 @@ class RsChienBitPosToNum extends Module with GfParams {
   val posOhCapt = Reg(Vec(tLen, new PosBaseVld))
   val prePipe = Wire(Vec(tLen, new PosBaseLastVld))
   val postPipe = Wire(Vec(tLen-1, new PosBaseLastVld))
-  val base = RegInit(UInt(symbWidth.W), 0.U)
   val prePipeVld = Wire(Vec(tLen, Bool()))
-  
-  //////////////////////////////
-  // Pipelining FFS logic
-  //////////////////////////////
+  val postPipeVld = Wire(Vec(tLen-1, Bool()))
+
+  val base = RegInit(UInt(symbWidth.W), 0.U)
 
   when(io.bitPos.valid){
     base := base + chienRootsPerCycle
   }.otherwise{
     base := 0
   }
+
+  //////////////////////////////
+  // Pipelining FFS logic
+  //////////////////////////////
+
+  val pipe = Module(new pipeline(new PosBaseLastVld, ffStepPosToNum, tLen, true))
+
+  pipe.io.prePipe := prePipe
+  pipe.io.prePipeVld.get := prePipeVld
+  postPipe := pipe.io.postPipe
+  postPipeVld := pipe.io.postPipeVld.get
 
   for(i <- 0 until tLen) {    
     if(i == 0) {
@@ -208,28 +200,16 @@ class RsChienBitPosToNum extends Module with GfParams {
       }
       prePipe(i).pos     := posOh(i).io.lsbPosXor
       prePipe(i).base    := base
-      prePipe(i).valid   := io.bitPos.valid
+      prePipeVld(i)      := io.bitPos.valid
       prePipe(i).last    := io.bitPos.last
     } else {
       posOh(i).io.bitPos := postPipe(i-1).pos
       prePipe(i).pos     := posOh(i).io.lsbPosXor
       prePipe(i).base    := postPipe(i-1).base
-      prePipe(i).valid   := postPipe(i-1).valid
+      prePipeVld(i) := postPipeVld(i-1)
       prePipe(i).last    := postPipe(i-1).last
     }
     posOh(i).io.bypass := posOhCapt(i).valid
-    prePipeVld(i) := prePipe(i).valid
-  }
-
-  val pipeQ = Reg(Vec(tLen, new PosBaseLastVld))
-
-  for(i <- 0 until ffNumPolyEVal) {
-    pipeQ(i) := prePipe((i*ffStepPosToNum)+ffStepPosToNum-1)
-    postPipe((i*ffStepPosToNum)+ffStepPosToNum-1) := pipeQ(i)
-  }
-  for(i <- 0 until tLen) {
-    if((i+1) % ffStepPosToNum != 0)
-      postPipe(i) := prePipe(i)
   }
 
   //////////////////////////////
@@ -285,30 +265,30 @@ class RsChienPosOh extends Module with GfParams {
   
 }
 
-//class Pipeline[D <: Data](data: D, ffNum: Int, ffStep: Int) extends Module{
-//  val io = IO(new Bundle{
-//    val prePipe = Input(Vec(ffNum, data))
-//    val postPipe = Output(Vec(ffNum-1, data))
-//  })
-//
-//  val pipeQ = Reg(Vec(tLen, new data))
-//  for(i <- 0 until ffNum) {
-//    pipeQ(i) := prePipe((i*ffStep)+ffStep-1)
-//    postPipe((i*ffStep)+ffStep-1) := pipeQ(i)
-//  }
-//
-//  for(i <- 0 until tLen) {
-//    if((i+1) % ffStep != 0)
-//      postPipe(i) := prePipe(i)
-//  }
-//}
+/////////////////////////////////////////
+// RsChien
+/////////////////////////////////////////
+class RsChien extends Module with GfParams{
+  val io = IO(new Bundle {
+    val errLocatorIf = Input(Valid(new ErrLocatorBundle()))
+    val numArray = Output(new NumPosIf)
+  })
+
+  val rsChienGetBitPos = Module(new RsChienGetBitPos)
+  val rsChienBitPosToNum = Module(new RsChienBitPosToNum)
+
+  rsChienGetBitPos.io.errLocatorIf := io.errLocatorIf
+  rsChienBitPosToNum.io.bitPos := rsChienGetBitPos.io.bitPos
+  io.numArray := rsChienBitPosToNum.io.numArray
+}
 
 //
 // runMain Rs.GenTest
 object GenTest extends App {
   //ChiselStage.emitSystemVerilogFile(new GfPolyEval(), Array())
   //ChiselStage.emitSystemVerilogFile(new RsChienGetBitPos(), Array())
-  ChiselStage.emitSystemVerilogFile(new RsChienBitPosToNum(), Array())  
+  //ChiselStage.emitSystemVerilogFile(new RsChienBitPosToNum(), Array())
+  ChiselStage.emitSystemVerilogFile(new RsChien(), Array())
 }
 
 /////////////////////////////////////////

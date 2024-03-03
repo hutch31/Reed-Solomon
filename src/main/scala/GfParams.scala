@@ -41,7 +41,7 @@ trait GfParams {
   class PosBaseLastVld extends Bundle {
     val pos = UInt(chienRootsPerCycle.W)
     val base = UInt(symbWidth.W)
-    val valid = Bool()
+    //val valid = Bool()
     val last  = Bool()
   }
 
