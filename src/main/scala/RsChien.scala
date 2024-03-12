@@ -161,7 +161,7 @@ class RsChienGetBitPos extends Module with GfParams {
 class RsChienBitPosToNum extends Module with GfParams {
   val io = IO(new Bundle {
     val bitPos = Input(new BitPosIf)
-    val numArray = Output(new NumPosIf)
+    val posArray = Output(new NumPosIf)
   })
 
   val posOh = for(i <- 0 until tLen) yield Module(new RsChienPosOh())
@@ -226,11 +226,11 @@ class RsChienBitPosToNum extends Module with GfParams {
     }.otherwise{
       posOhCapt(i).valid := 0
     }
-    io.numArray.sel(i) := posOhCapt(i).valid
-    io.numArray.pos(i) := nLen - 1 - ohToNum(posOhCapt(i).pos, posOhCapt(i).base)
+    io.posArray.sel(i) := posOhCapt(i).valid
+    io.posArray.pos(i) := nLen - 1 - ohToNum(posOhCapt(i).pos, posOhCapt(i).base)
   }
 
-  io.numArray.valid := RegNext(prePipe(tLen-1).last)
+  io.posArray.valid := RegNext(prePipe(tLen-1).last)
 
 }
 
@@ -271,7 +271,7 @@ class RsChienPosOh extends Module with GfParams {
 class RsChien extends Module with GfParams{
   val io = IO(new Bundle {
     val errLocatorIf = Input(Valid(new ErrLocatorBundle()))
-    val numArray = Output(new NumPosIf)
+    val posArray = Output(new NumPosIf)
   })
 
   val rsChienGetBitPos = Module(new RsChienGetBitPos)
@@ -279,7 +279,7 @@ class RsChien extends Module with GfParams{
 
   rsChienGetBitPos.io.errLocatorIf := io.errLocatorIf
   rsChienBitPosToNum.io.bitPos := rsChienGetBitPos.io.bitPos
-  io.numArray := rsChienBitPosToNum.io.numArray
+  io.posArray := rsChienBitPosToNum.io.posArray
 }
 
 //

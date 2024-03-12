@@ -45,68 +45,11 @@ class pipeline[T <: Data](dt: T, ffStep: Int, pipeLen: Int, vldEn: Boolean ) ext
   }
 }
 
-class GfPolyEval2 extends Module with GfParams {
-  val io = IO(new Bundle {
-    val errLocatorIf = Input(new ErrLocatorBundle)
-    val inSymb = Input(Valid(UInt(symbWidth.W)))
-    val evalValue = Output(Valid(UInt(symbWidth.W)))
-  })
 
-  class SymbXorVld extends Bundle {
-    val xor = UInt(symbWidth.W)
-    val symb = UInt(symbWidth.W)
-    //val valid = Bool()
-  }
-
-  val gfMultIntrm = Wire(Vec(tLen, UInt(symbWidth.W)))
-
-  val prePipe = Wire(Vec(tLen, new SymbXorVld))
-  val postPipe = Wire(Vec(tLen-1, new SymbXorVld))
-  val prePipeVld = Wire(Vec(tLen, Bool()))
-  val postPipeVld = Wire(Vec(tLen-1, Bool()))
-
-  for(i <- 0 until tLen) {
-    if(i == 0) {
-      gfMultIntrm(i) := gfMult(1, io.inSymb.bits)
-      prePipeVld(i) := io.inSymb.valid
-      prePipe(i).symb := io.inSymb.bits
-    }else {
-      gfMultIntrm(i) := gfMult(postPipe(i-1).xor, postPipe(i-1).symb)
-      prePipeVld(i) := postPipeVld(i-1)
-      prePipe(i).symb := postPipe(i-1).symb
-    }
-    prePipe(i).xor := gfMultIntrm(i) ^ io.errLocatorIf.errLocator(i)
-  }
-
-  /////////////////////////////////////////
-  // Pipeline the comb logic if requred
-  /////////////////////////////////////////
-
-  val pipe = Module(new pipeline(new SymbXorVld, 0, tLen, true))
-  pipe.io.prePipe := prePipe
-  pipe.io.prePipeVld.get := prePipeVld
-  postPipe := pipe.io.postPipe
-  postPipeVld := pipe.io.postPipeVld.get
-
-  // Add registers
-  val prioEnvOut = Wire(UInt(log2Ceil(tLen).W))
-
-  prioEnvOut := 0.U
-  for(i <- (0 until tLen)) {
-    when(io.errLocatorIf.errLocatorSel(i) === 1) {
-      prioEnvOut := i.U
-    }
-  }
-
-  io.evalValue.valid := prePipeVld(prioEnvOut)
-  io.evalValue.bits := prePipe(prioEnvOut).xor
-  
-
-}
 
 // runMain Rs.GenPipe
-object GenPipe extends App {
-  ChiselStage.emitSystemVerilogFile(new GfPolyEval2, Array())
-}
+//object GenPipe extends App {
+//  ChiselStage.emitSystemVerilogFile(new GfPolyEval2, Array())
+//}
 
 //println(getVerilogString(new pipeline(new child_1, 3, 11), pretty))

@@ -9,7 +9,8 @@ trait GfParams {
   val symbWidth = 8
   val symbNum = 1 << symbWidth
   val poly = 285
-  val field_charac = (1 << symbWidth)-1
+  val fieldChar = (1 << symbWidth)-1
+  val firstRootPower = 1
 
   val nLen = 255
   val kLen = 239
@@ -19,16 +20,34 @@ trait GfParams {
   //////////////////////////////
   // Chien parameterization
   //////////////////////////////
-
+  
   val chienRootsPerCycle = 16
   val chienRootsNum = symbNum - 2
   val chienNonValid = ((1 << (chienRootsNum % chienRootsPerCycle)) -1).U
   val chienCyclesNum = calcChienCyclesNum(chienRootsNum, chienRootsPerCycle)
   val chienCntrWidth = log2Ceil(chienCyclesNum)
 
+  val ffStepPosToNum = 4
+  val ffStepPolyEval = 4
+  //val ffNumPolyEVal = (tLen/ffStepPolyEval).toInt-1
+
+  //////////////////////////////
+  // Forney parameterization
+  //////////////////////////////
+
+  val ffStepErrataLocator = 2
+  val numOfErrataLocStages = 2
+
+  //////////////////////////////
+  // Bundles
+  //////////////////////////////
+  class ErrataLocBundle extends Bundle {
+    val errataLoc = Vec(tLen+1, UInt(symbWidth.W))
+  }
+
   class NumPosIf extends Bundle {
     val valid = Bool()
-    val sel   = Vec(tLen, Bool())
+    val sel   = UInt(tLen.W)
     val pos   = Vec(tLen, UInt(symbWidth.W))
   }
 
@@ -78,20 +97,16 @@ trait GfParams {
   }
 
   //////////////////////////////
-  // Block parameterization
+  // Forney parameterization
   //////////////////////////////
-
-  def clog2(x: Int): Int = {
-    require(x > 0, "Argument to clog2 must be greater than zero")
-      (math.log(x) / math.log(2)).ceil.toInt
-  }
 
   //////////////////////////////
   // Block parameterization
   //////////////////////////////
-  val ffStepPosToNum = 4
-  val ffStepPolyEval = 4
-  val ffNumPolyEVal = (tLen/ffStepPolyEval).toInt-1
+  
+  //////////////////////////////
+  // GF functions
+  //////////////////////////////
 
   def genAlphaToSymb (symbWidth: Int, poly: Int) : Seq[Int] = {
     val alpha_to_symb = new ArrayBuffer[Int](1 << symbWidth)
@@ -135,7 +150,7 @@ trait GfParams {
     val alphaB = Wire(UInt(symbWidth.W))
     alphaA := symbToAlpha(symbA)
     alphaB := symbToAlpha(symbB)
-    alphaSum := (alphaA + alphaB) % field_charac.U
+    alphaSum := (alphaA + alphaB) % fieldChar.U
     when((symbA === 0.U) | (symbB === 0.U)){
       mult := 0.U
     }.otherwise{
@@ -144,7 +159,22 @@ trait GfParams {
     mult
   }
 
+  // TODO: simplify if firstRoot == 2(firstRootPower = 1)
+  // then:
+  // genPowerFirstRootTbl += i % fieldChar
+  def genPowerFirstRoot() : Seq[Int] = {
+    val genPowerFirstRootTbl = new ArrayBuffer[Int](nLen)
+    for(i <- 0 until nLen) {
+      genPowerFirstRootTbl += (firstRootPower * i) % fieldChar
+    }
+    genPowerFirstRootTbl.toSeq
+  }
 
+  def powerFirstRoot(powOfSymb: UInt) : UInt = {
+    val powerFirstRootTbl = VecInit(genPowerFirstRoot().map(_.U))
+    val powFirstRoot = alphaToSymb(powerFirstRootTbl(powOfSymb))
+    powFirstRoot
+  }
 
   //val alpha_to_symb_tbl = VecInit(genAlphaToSymb(symbWidth, poly).map(_.U))
   //val symb_to_alpha_tbl = VecInit(genSymbToAlpha(symbWidth, poly, genAlphaToSymb(symbWidth, poly)).map(_.U))
