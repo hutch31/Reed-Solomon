@@ -88,7 +88,7 @@ class RsChienBitPosToNumTest(RsTest):
     
             # Bit positions packet        
             bit_pos = RsErrBitPositionPacket(name=f'bit_pos-{i}', n_len=N_LEN, roots_num=ROOTS_NUM)
-            bit_pos.rs_gen_data(msg=cor_msg.data)        
+            bit_pos.rs_gen_data(msg=cor_msg.data)
             bit_pos.print_pkt()
             bit_pos.gen_delay(delay=None, delay_type='no_delay')
             self.drv_pkt.append(bit_pos)
@@ -118,3 +118,83 @@ class RsChienBitPosToNumTest(RsTest):
     def post_run(self):
         print("post_run()")        
         self.comp.compare()
+
+class RsChienCorruptsInRawStart(RsChienBitPosToNumTest):
+
+    def gen_stimilus(self):
+        init_tables()
+        if CHIEN__CYCLES_NUM < 3:
+            test_range = N_LEN-T_LEN
+        else:
+            test_range = CHIEN__ROOTS_PER_CYCLE
+        
+        for i in range(test_range):
+            corrupts = []
+            for k in range (T_LEN):
+                corrupts.append(i+k)
+            ref_msg = Packet(name=f'ref_msg')
+            ref_msg.generate(K_LEN)
+        
+            enc_msg = RsPacket(name=f'enc_msg', n_len=N_LEN, roots_num=ROOTS_NUM)
+            enc_msg.rs_gen_data(msg=ref_msg.data)
+            
+            #Create cor_msg based on the same ref_msg
+            cor_msg = RsPacket(name=f'cor_msg', n_len=N_LEN, roots_num=ROOTS_NUM)
+            cor_msg.rs_gen_data(msg=ref_msg.data)
+            cor_msg.corrupt_pkt(corrupts)        
+            cor_msg.compare(enc_msg)
+            #cor_msg.print_pkt()
+    
+            # Bit positions packet        
+            bit_pos = RsErrBitPositionPacket(name=f'bit_pos-{i}', n_len=N_LEN, roots_num=ROOTS_NUM)
+            bit_pos.rs_gen_data(msg=cor_msg.data)        
+            bit_pos.print_pkt()
+            bit_pos.gen_delay(delay=None, delay_type='no_delay')
+            self.drv_pkt.append(bit_pos)
+            
+            # Error position packet
+            err_pos = RsErrPositionPacket(name=f'err_pos-{i}', n_len=N_LEN, roots_num=ROOTS_NUM)
+            err_pos.rs_gen_data(msg=cor_msg.data)        
+            err_pos.print_pkt()
+            err_pos.gen_delay(delay=None, delay_type='no_delay')
+            self.comp.port_prd.append(err_pos)
+
+class RsChienCorruptsInRawStop(RsChienBitPosToNumTest):
+
+    def gen_stimilus(self):
+        init_tables()
+        if CHIEN__CYCLES_NUM < 3:
+            test_range = N_LEN-T_LEN
+        else:
+            test_range = CHIEN__ROOTS_PER_CYCLE
+        
+        for i in range(test_range):
+            corrupts = []
+            for k in range (T_LEN):
+                corrupts.append(N_LEN-T_LEN-i-k)
+            ref_msg = Packet(name=f'ref_msg')
+            ref_msg.generate(K_LEN)
+        
+            enc_msg = RsPacket(name=f'enc_msg', n_len=N_LEN, roots_num=ROOTS_NUM)
+            enc_msg.rs_gen_data(msg=ref_msg.data)
+            
+            #Create cor_msg based on the same ref_msg
+            cor_msg = RsPacket(name=f'cor_msg', n_len=N_LEN, roots_num=ROOTS_NUM)
+            cor_msg.rs_gen_data(msg=ref_msg.data)
+            cor_msg.corrupt_pkt(corrupts)        
+            cor_msg.compare(enc_msg)
+            #cor_msg.print_pkt()
+    
+            # Bit positions packet        
+            bit_pos = RsErrBitPositionPacket(name=f'bit_pos-{i}', n_len=N_LEN, roots_num=ROOTS_NUM)
+            bit_pos.rs_gen_data(msg=cor_msg.data)        
+            bit_pos.print_pkt()
+            bit_pos.gen_delay(delay=None, delay_type='no_delay')
+            self.drv_pkt.append(bit_pos)
+            
+            # Error position packet
+            err_pos = RsErrPositionPacket(name=f'err_pos-{i}', n_len=N_LEN, roots_num=ROOTS_NUM)
+            err_pos.rs_gen_data(msg=cor_msg.data)        
+            err_pos.print_pkt()
+            err_pos.gen_delay(delay=None, delay_type='no_delay')
+            self.comp.port_prd.append(err_pos)

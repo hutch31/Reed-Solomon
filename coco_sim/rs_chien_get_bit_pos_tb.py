@@ -18,7 +18,6 @@ rs_chisel = get_path('RS_CHISEL')
 
 sys.path.append(dig_com_path + "/rs/python")
 sys.path.append(dig_com_path + "/rs/sim")
-sys.path.append(dig_com_path + "/rs/sim/tests")
 sys.path.append(coco_path)
 sys.path.append(rs_chisel)
 sys.path.append(rs_chisel+"/coco_sim")
@@ -35,7 +34,7 @@ sys.path.append(coco_path)
 from rs_param import *
 
 # Import test
-from rs_chien_bit_pos_test import RsChienGetBitPos
+from rs_chien_get_bit_pos_test import RsChienGetBitPos
 
 @cocotb.test()
 async def poly_cover(dut):

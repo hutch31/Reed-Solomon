@@ -46,7 +46,7 @@ class RsChienGetBitPos(RsTest):
         self.reset = self.dut.reset
         
         # Connect Error locator IF
-        for i in range(T_LEN):            
+        for i in range(T_LEN):
             self.error_locator_if.append(eval(f"self.dut.io_errLocatorIf_bits_errLocator_{i}"))
         self.error_locator_sel = self.dut.io_errLocatorIf_bits_errLocatorSel
         self.error_locator_vld = self.dut.io_errLocatorIf_valid

@@ -18,7 +18,6 @@ rs_chisel = get_path('RS_CHISEL')
 
 sys.path.append(dig_com_path + "/rs/python")
 sys.path.append(dig_com_path + "/rs/sim")
-sys.path.append(dig_com_path + "/rs/sim/tests")
 sys.path.append(coco_path)
 sys.path.append(rs_chisel)
 sys.path.append(rs_chisel+"/coco_sim")
@@ -36,6 +35,8 @@ from rs_param import *
 
 # Import test
 from rs_chien_bit_pos_to_num_test import RsChienBitPosToNumTest
+from rs_chien_bit_pos_to_num_test import RsChienCorruptsInRawStart
+from rs_chien_bit_pos_to_num_test import RsChienCorruptsInRawStop
 
 @cocotb.test()
 async def poly_cover(dut):
@@ -51,7 +52,37 @@ async def poly_cover(dut):
     await test.run()
     test.post_run()
     del test
-        
+
+@cocotb.test()
+async def raw_corrupts_in_start(dut):
+    
+    ###################################################
+    # Generate stimulus
+    ###################################################
+    print(f"[RAW_CORRUPTS_IN_START] Corrupts T_LEN number of first symbols in a raw.")
+    test = RsChienCorruptsInRawStart(dut)
+    test.set_if()
+    test.build_env()
+    test.gen_stimilus()
+    await test.run()
+    test.post_run()
+    del test
+
+@cocotb.test()
+async def raw_corrupts_in_stop(dut):
+    
+    ###################################################
+    # Generate stimulus
+    ###################################################
+    print(f"[RAW_CORRUPTS_IN_START] Corrupts T_LEN number of first symbols in a raw.")
+    test = RsChienCorruptsInRawStart(dut)
+    test.set_if()
+    test.build_env()
+    test.gen_stimilus()
+    await test.run()
+    test.post_run()
+    del test
+
 def RsChienBitPosToNumTb():
 
     test_module = "rs_chien_bit_pos_to_num_tb"

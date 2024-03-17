@@ -43,7 +43,7 @@ async def poly_cover(dut):
     ###################################################
     # Generate stimulus
     ###################################################
-    for i in range(1, T_LEN+1):
+    for i in range(1, T_LEN):
         print(f"[POLY_COVER_TEST] corrupts = {i}")
         corrupts = i
         test = GfPolyEvalTest(dut, corrupts)
@@ -95,7 +95,7 @@ def gf_poly_eval_tb():
 
 
 if __name__ == "__main__":
-    os.environ["RANDOM_SEED"] = '1706722271'
+    #os.environ["RANDOM_SEED"] = '1706722271'
     gf_poly_eval_tb()
 
 
