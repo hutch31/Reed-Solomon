@@ -8,7 +8,7 @@ import chisel3.util._
 class ErrataLocatorPar extends Module with GfParams {
   val io = IO(new Bundle {
     val posArray = Input(new NumPosIf)
-    val errataLoc = Output(Valid(new ErrataLocBundle))
+    val errataLoc = Output(Valid(Vec(tLen+1, UInt(symbWidth.W))))
   })
 
   val stage = for(i <- 0 until numOfErrataLocStages) yield Module(new ErrataLocatorStage())
@@ -64,15 +64,71 @@ class ErrataLocatorPar extends Module with GfParams {
   }
 
   io.errataLoc.valid := errataLocVld
-  io.errataLoc.bits.errataLoc := errataLoc
+  io.errataLoc.bits := errataLoc
 
 }
+
+class ErrorEvaluator extends Module with GfParams {
+  val io = IO(new Bundle {
+    val errataLoc = Input(Valid(Vec(tLen+1, UInt(symbWidth.W))))
+    val syndrome = Input(Vec(redundancy, UInt(symbWidth.W)))
+    val syndXErrataLoc = Output(Valid(Vec(redundancy+tLen, UInt(symbWidth.W))))
+  })
+
+  val diagXorAll = Module(new DiagonalXorAll(tLen+1, redundancy, symbWidth))
+  val syndromeRev = Wire(Vec(redundancy, UInt(symbWidth.W)))
+  val syndXErrataLocMatrix = Wire(Vec(tLen+1, Vec(redundancy, UInt(symbWidth.W))))
+  
+  for(i <- 0 until redundancy) {
+    syndromeRev(i) := io.syndrome(redundancy-1-i)
+  }
+
+  for(locIndx <- 0 until tLen+1) { // tLen = 8 / redundancy = 16
+    for(syndIndx <- 0 until redundancy) {
+      syndXErrataLocMatrix(locIndx)(syndIndx) := gfMult(io.errataLoc.bits(locIndx), syndromeRev(syndIndx))
+    }
+  }
+
+  // Poly Mult
+  diagXorAll.io.recMatrix := syndXErrataLocMatrix
+
+  val syndXErrataLoc = RegNext(diagXorAll.io.xorVect)
+  val syndXErrataLocVld = RegNext(next=io.errataLoc.valid, init=false.B)
+
+  io.syndXErrataLoc.bits := syndXErrataLoc
+  io.syndXErrataLoc.valid := syndXErrataLocVld
+
+  // Poly Divide
+  // Divisor could vary from 1'b1 up to { 1'b1, {T_LEN-1{1'b0}} }
+  // logic [T_LEN:0][SYMB_WIDTH-1:0] dividend_arr [T_LEN-1:0];
+  //val dividendArray = Wire(Vec(tLen, (Vec(tLen, UInt(symbWidth.W)))))
+
+
+}
+
+class RsForney extends Module with GfParams {
+  val io = IO(new Bundle {
+    val posArray = Input(new NumPosIf)
+    val syndrome = Input(Vec(redundancy, UInt(symbWidth.W)))
+    val syndXErrataLoc = Output(Valid(Vec(redundancy+tLen, UInt(symbWidth.W))))
+  })
+
+  val errataLocator= Module(new ErrataLocatorPar)
+  val errorEvaluator = Module(new ErrorEvaluator)
+
+  errataLocator.io.posArray := io.posArray
+
+  errorEvaluator.io.errataLoc := errataLocator.io.errataLoc
+  errorEvaluator.io.syndrome := io.syndrome
+  io.syndXErrataLoc := errorEvaluator.io.syndXErrataLoc
+
+}
+
 
 //class ErrataLocator extends Module with GfParams {
 //  val io = IO(new Bundle {
 //    val posArray = Input(new NumPosIf)
 //    val errataLoc = Output(Valid(Vec(tLen+1, UInt(symbWidth.W))))
-//    //val valArray = Output(new NumPosIf)
 //  })
 //
 //  val coefPosition = Wire(Vec(tLen, UInt(symbWidth.W)))
@@ -82,6 +138,7 @@ class ErrataLocatorPar extends Module with GfParams {
 //    coefPosition(i) := nLen-1-io.posArray.pos(i) // 255-1-115 = 139
 //    coefPositionPower(i) := powerFirstRoot(coefPosition(i)) // 66
 //  }
+//
 //
 //  /////////////////////////////////////////
 //  // Errata locator
@@ -169,5 +226,7 @@ class ErrataLocatorStage extends Module with GfParams{
 
 // runMain Rs.GenForney
 object GenForney extends App {
-  ChiselStage.emitSystemVerilogFile(new ErrataLocatorPar(), Array())
+  //ChiselStage.emitSystemVerilogFile(new ErrataLocatorPar(), Array())
+  //ChiselStage.emitSystemVerilogFile(new ErrorEvaluator(), Array())
+  ChiselStage.emitSystemVerilogFile(new RsForney(), Array())
 }
