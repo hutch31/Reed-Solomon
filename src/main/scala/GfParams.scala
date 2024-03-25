@@ -15,7 +15,7 @@ trait GfParams {
   val nLen = 255
   val kLen = 239
   val redundancy = nLen - kLen
-  val tLen = (redundancy/2).toInt
+  val tLen = redundancy/2
 
   //////////////////////////////
   // Chien parameterization
@@ -37,12 +37,22 @@ trait GfParams {
 
   val ffStepErrataLocator = 2
   val numOfErrataLocStages = 2
+  // FD - formal derivative params
+  val numOfStagesFd0 = 2
+  val numOfCyclesFd0 = math.ceil(tLen.toDouble/numOfStagesFd0.toDouble).toInt
+  val numOfComboLenFd1 = 2
+  val numOfQStagesFd1 = (tLen-1)/numOfComboLenFd1
 
   //////////////////////////////
   // Bundles
   //////////////////////////////
   class ErrataLocBundle extends Bundle {
     val errataLoc = Vec(tLen+1, UInt(symbWidth.W))
+  }
+
+  class DataSelBundle(width: Int) extends Bundle {
+    val data = (Vec(width, UInt(symbWidth.W)))
+    val sel  = UInt(width.W)
   }
 
   class NumPosIf extends Bundle {
@@ -75,6 +85,15 @@ trait GfParams {
     val errLocatorSel = UInt(tLen.W)
   }
 
+  //////////////////////////
+  // Forney bundles
+  //////////////////////////
+  
+  class vecFfsIf(width: Int) extends Bundle {
+    val vec = Vec(width, UInt(symbWidth.W))
+    val ffs = UInt(width.W)
+  }
+
   def calcChienCyclesNum (rootsNum: Int, rootsPerCycle: Int): Int = {
     if(rootsNum % rootsPerCycle == 0)
       (rootsNum/rootsPerCycle).toInt
@@ -96,14 +115,6 @@ trait GfParams {
     baseArrayAndSel.reduce(_ | _)
   }
 
-  //////////////////////////////
-  // Forney parameterization
-  //////////////////////////////
-
-  //////////////////////////////
-  // Block parameterization
-  //////////////////////////////
-  
   //////////////////////////////
   // GF functions
   //////////////////////////////
@@ -159,6 +170,13 @@ trait GfParams {
     mult
   }
 
+  def gfInv(symb : UInt) : UInt = {
+    val alphaInv = Wire(UInt(symbWidth.W))
+    alphaInv := (symbNum - 1).U - symbToAlpha(symb)
+    val gfInverse =alphaToSymb(alphaInv)
+    gfInverse
+  }
+
   // TODO: simplify if firstRoot == 2(firstRootPower = 1)
   // then:
   // genPowerFirstRootTbl += i % fieldChar
@@ -170,10 +188,24 @@ trait GfParams {
     genPowerFirstRootTbl.toSeq
   }
 
+  def genPowerFirstRootNeg() : Seq[Int] = {
+    val genPowerFirstRootNegTbl = new ArrayBuffer[Int](nLen)
+    for(i <- 0 until nLen) {
+      genPowerFirstRootNegTbl += (firstRootPower*(fieldChar-i)) % fieldChar
+    }
+    genPowerFirstRootNegTbl.toSeq
+  }
+
   def powerFirstRoot(powOfSymb: UInt) : UInt = {
     val powerFirstRootTbl = VecInit(genPowerFirstRoot().map(_.U))
     val powFirstRoot = alphaToSymb(powerFirstRootTbl(powOfSymb))
     powFirstRoot
+  }
+
+  def powerFirstRootNeg(powOfSymb: UInt) : UInt = {
+    val powerFirstRootNegTbl = VecInit(genPowerFirstRootNeg().map(_.U))
+    val powFirstRootNeg = alphaToSymb(powerFirstRootNegTbl(powOfSymb))
+    powFirstRootNeg
   }
 
   //val alpha_to_symb_tbl = VecInit(genAlphaToSymb(symbWidth, poly).map(_.U))
