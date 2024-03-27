@@ -7,7 +7,7 @@ import scala.collection.mutable.ArrayBuffer
 
 class FormalDerivative extends Module with GfParams {
   val io = IO(new Bundle {
-    val errPosCoefIf = Input(Valid(new errPosCoefInterface))
+    val errPosCoefIf = Input(Valid(new vecFfsIf(tLen)))
     val formalDerIf    = Output(Vec(tLen, UInt(symbWidth.W)))
   })
 
@@ -27,41 +27,53 @@ class FormalDerivative extends Module with GfParams {
   /////////////////////////////////
 
   val XlInvShift = Reg(Vec(tLen, (UInt(symbWidth.W))))
-  val XlInvVldShift = Reg(UInt(tLen.W))
-  val cntr = Reg(UInt(log2Ceil(tLen).W))
-  val lastCycleFd0 = Wire(Bool())
+  val cntr = RegInit(UInt(log2Ceil(cntrStopLimitFd0).W), 0.U)
 
   // Load data into the shift register
   when(io.errPosCoefIf.valid) {
     XlInvShift := XlInv
-    XlInvVldShift := io.errPosCoefIf.bits.ffs
-    cntr := 0.U
   }.otherwise{
     // Rotate
     for(i <- 0 until tLen-numOfStagesFd0)
       XlInvShift(i) := XlInvShift(i+numOfStagesFd0)
-    XlInvVldShift := XlInvVldShift >> numOfStagesFd0
-    cntr := cntr + numOfStagesFd0.U
   }
 
-  when (cntr === numOfCyclesFd0.U) {
-    lastCycleFd0 := true.B
-  }.otherwise {
-    lastCycleFd0 := false.B
+  val lastCycleFd0 = Wire(Bool())
+
+  // cntr that controls pipe execution
+  if(numOfStagesFd0 == tLen) {
+    cntr := 0.U
+    lastCycleFd0 := RegNext(next=io.errPosCoefIf.valid, init=false.B)
+  } else {    
+    val start_cntr = RegNext(next=io.errPosCoefIf.valid, init=false.B)
+    when(start_cntr){
+      cntr := numOfStagesFd0.U
+    }.elsewhen(cntr === cntrEopFd0.U) {
+      cntr := 0.U
+    }.elsewhen(cntr =/= 0.U){
+      cntr := cntr + numOfStagesFd0.U
+    }
+    // last cycle is used to capture the output value
+    when (cntr === cntrEopFd0.U) {
+      lastCycleFd0 := true.B
+    }.otherwise{
+      lastCycleFd0 := false.B
+    }
   }
 
   val XlMultXlInv = Wire(Vec(numOfStagesFd0, (Vec(tLen-1, (UInt(symbWidth.W))))))
   val stageEoPFd1 = Wire(Bool())
 
   val stageFd1 = for(i <- 0 until numOfStagesFd0) yield Module(new FormalDerivativeStage1)
+  val stageFd0 = for(i <- 0 until numOfStagesFd0) yield Module(new DeleteItem(tLen, symbWidth))
+  val stageOut = Wire(Vec(numOfStagesFd0, (Vec(tLen-1, (UInt(symbWidth.W))))))
 
-  for(i <- 0 until numOfStagesFd0) {
-    val stageFd0 = Module(new DeleteItem(tLen, symbWidth))
-    val stageOut = stageFd0.io.out
-    stageFd0.io.in := Xl
-    stageFd0.io.sel := cntr+i.U
+  for(i <- 0 until numOfStagesFd0) {    
+    stageOut(i) := stageFd0(i).io.out
+    stageFd0(i).io.in := Xl
+    stageFd0(i).io.sel := cntr+i.U
     for(j <- 0 until tLen-1) {
-      XlMultXlInv(i)(j) := gfMult(stageOut(j), XlInvShift(i)) ^ 1.U
+      XlMultXlInv(i)(j) := gfMult(stageOut(i)(j), XlInvShift(i)) ^ 1.U
     }    
   }
 
@@ -69,19 +81,21 @@ class FormalDerivative extends Module with GfParams {
   // FD1 stage
   /////////////////////////////////
 
-  for(i <- 0 until numOfStagesFd0) {
-    stageEoPFd1 := ShiftRegister(lastCycleFd0, numOfQStagesFd1+1, false.B, true.B)
+  stageEoPFd1 := ShiftRegister(lastCycleFd0, numOfQStagesFd1+1, false.B, true.B)
+
+  for(i <- 0 until numOfStagesFd0) {    
     stageFd1(i).io.in := XlMultXlInv(i)
   }    
 
   // Pipelining FD1 
   val pipeFd1Q = Reg(Vec(numOfCyclesFd0, (Vec(numOfStagesFd0, (Vec(tLen-1, (UInt(symbWidth.W))))))))
+  val pipeFd1VldQ = RegNext(next=stageEoPFd1, init=false.B)
   val pipeFd1 = Wire(Vec(tLen, (Vec(tLen-1, UInt(symbWidth.W)))))
 
   for(i <- 0 until numOfCyclesFd0) {
     for(k <- 0 until numOfStagesFd0) {
       if(i == 0 )
-        pipeFd1Q(numOfCyclesFd0-1)(k) := stageFd1(i).io.out
+        pipeFd1Q(numOfCyclesFd0-1)(k) := stageFd1(k).io.out
       else
         pipeFd1Q(numOfCyclesFd0-1-i)(k) := pipeFd1Q(numOfCyclesFd0-i)(k)
       if(i*numOfStagesFd0+k < tLen)
@@ -103,7 +117,7 @@ class FormalDerivative extends Module with GfParams {
 
   val formalDer = Reg(Vec(tLen, UInt(symbWidth.W)))
 
-  when(stageEoPFd1) {
+  when(pipeFd1VldQ) {
     formalDer := Mux1H(io.errPosCoefIf.bits.ffs, formalDerArray)
   }
 
