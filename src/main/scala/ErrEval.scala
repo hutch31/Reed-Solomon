@@ -3,11 +3,11 @@ package Rs
 import chisel3._
 import chisel3.util._
 
-class ErrorEvaluator extends Module with GfParams {
+class ErrEval extends Module with GfParams {
   val io = IO(new Bundle {
     val errataLocIf = Input(Valid(new vecFfsIf(tLen+1)))
     val syndrome = Input(Vec(redundancy, UInt(symbWidth.W)))
-    val errorEval = Output(Valid(Vec(tLen, UInt(symbWidth.W))))
+    val errEvalIf = Output(Valid(Vec(tLen+1, UInt(symbWidth.W))))
   })
 
   val diagXorAll = Module(new DiagonalXorAll(tLen+1, redundancy, symbWidth))
@@ -47,8 +47,18 @@ class ErrorEvaluator extends Module with GfParams {
     }
   }
 
-  // Outputs
-  io.errorEval.bits := RegNext(Mux1H(posFfsQ, errorEvalArray))
-  io.errorEval.valid := RegNext(next=syndXErrataLocVld, init=false.B)
+  val errEval = Mux1H(posFfsQ, errorEvalArray)
+  val errEvalExp = Wire(Vec(tLen+1, UInt(symbWidth.W)))
+  val errEvalExpQ = Reg(Vec(tLen+1, UInt(symbWidth.W)))
+
+  // Expand errEval vec
+  errEvalExp := errEval ++ 0.U.asTypeOf(Vec(1, UInt(symbWidth.W)))
+
+  when(syndXErrataLocVld) {
+    errEvalExpQ := errEvalExp
+  }
+
+  io.errEvalIf.valid := RegNext(next=syndXErrataLocVld, init=false.B)
+  io.errEvalIf.bits := errEvalExpQ
 
 }
