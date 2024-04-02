@@ -38,10 +38,26 @@ trait GfParams {
   val ffStepErrataLocator = 2
   val numOfErrataLocStages = 2
   // FD - formal derivative params
-  val numOfStagesFd0 = 2
-  val numOfCyclesFd0 = math.ceil(tLen.toDouble/numOfStagesFd0.toDouble).toInt
-  val numOfComboLenFd1 = 2
+  val numOfStagesFd0 = 3
+  val numOfCyclesFd0 = math.ceil(tLen/numOfStagesFd0.toDouble).toInt
+  val cntrStopLimitFd0 = numOfStagesFd0 * numOfCyclesFd0 // 8
+  val cntrEopFd0  = numOfStagesFd0 * (numOfCyclesFd0-1)
+  val numOfComboLenFd1 = 3
   val numOfQStagesFd1 = (tLen-1)/numOfComboLenFd1
+
+  // EE - error evaluator params
+  val numOfStagesEe0 = 3
+  val numOfComboLenEe0 = 3
+
+  require(numOfComboLenEe0 <= tLen-1, "Ee0 Combo length less than (tLen-1)")
+  val numOfQStagesEe0 = if(numOfComboLenEe0 == tLen-1) 1 else (tLen-1)/numOfComboLenEe0+1
+
+  println("numOfStagesFd0: " + numOfStagesFd0)
+  println("numOfCyclesFd0: " + numOfCyclesFd0)
+  println("cntrStopLimitFd0: " + cntrStopLimitFd0)
+  println("numOfComboLenEe0 " + numOfComboLenEe0)
+  println("numOfQStagesEe0 " + numOfQStagesEe0)
+  println("cntrEopFd0: " + cntrEopFd0)
 
   //////////////////////////////
   // Bundles
@@ -88,7 +104,7 @@ trait GfParams {
   //////////////////////////
   // Forney bundles
   //////////////////////////
-  
+    
   class vecFfsIf(width: Int) extends Bundle {
     val vec = Vec(width, UInt(symbWidth.W))
     val ffs = UInt(width.W)
@@ -188,6 +204,14 @@ trait GfParams {
     genPowerFirstRootTbl.toSeq
   }
 
+  def genPowerFirstRootMin1() : Seq[Int] = {
+    val genPowerFirstRootTbl = new ArrayBuffer[Int](nLen)
+    for(i <- 0 until nLen) {
+      genPowerFirstRootTbl += ((firstRootPower-1) * i) % fieldChar
+    }
+    genPowerFirstRootTbl.toSeq
+  }
+
   def genPowerFirstRootNeg() : Seq[Int] = {
     val genPowerFirstRootNegTbl = new ArrayBuffer[Int](nLen)
     for(i <- 0 until nLen) {
@@ -200,6 +224,12 @@ trait GfParams {
     val powerFirstRootTbl = VecInit(genPowerFirstRoot().map(_.U))
     val powFirstRoot = alphaToSymb(powerFirstRootTbl(powOfSymb))
     powFirstRoot
+  }
+
+  def powerFirstRootMin1(powOfSymb: UInt) : UInt = {
+    val powerFirstRootMin1Tbl = VecInit(genPowerFirstRootMin1().map(_.U))
+    val powFirstRootMin1 = alphaToSymb(powerFirstRootMin1Tbl(powOfSymb))
+    powFirstRootMin1
   }
 
   def powerFirstRootNeg(powOfSymb: UInt) : UInt = {
