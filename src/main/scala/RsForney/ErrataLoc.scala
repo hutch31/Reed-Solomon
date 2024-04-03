@@ -28,6 +28,7 @@ class ErrataLoc extends Module with GfParams {
   }
 
   // Map inputs
+  shiftMod.io.vecIn.valid := io.errPosCoefIf.valid
   for(i <- 0 until tLen) {
     shiftMod.io.vecIn.bits(i).ffs := io.errPosCoefIf.bits.ffs.asTypeOf(Vec(tLen, Bool()))(i)
     shiftMod.io.vecIn.bits(i).symb := io.errPosCoefIf.bits.vec(i)
@@ -41,6 +42,8 @@ class ErrataLoc extends Module with GfParams {
 
   when(shiftMod.io.vecOut.valid) {
     errataLocVld := errPosVldStage.reduce(_ || _)
+  }.otherwise {
+    errataLocVld := 0.U
   }
   
   ///////////////////////////
