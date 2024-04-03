@@ -7,34 +7,58 @@ class ErrEval extends Module with GfParams {
   val io = IO(new Bundle {
     val errataLocIf = Input(Valid(new vecFfsIf(tLen+1)))
     val syndrome = Input(Vec(redundancy, UInt(symbWidth.W)))
-    val errEvalIf = Output(Valid(Vec(tLen+1, UInt(symbWidth.W))))
+    val errEvalIf = Output(Valid(new vecFfsIf(tLen+1)))
   })
 
-  val diagXorAll = Module(new DiagonalXorAll(tLen+1, redundancy, symbWidth))
-  val syndromeRev = Wire(Vec(redundancy, UInt(symbWidth.W)))
-  val syndXErrataLocArray = Wire(Vec(tLen+1, Vec(redundancy, UInt(symbWidth.W))))
+  val syndRev = Wire(Vec(redundancy, UInt(symbWidth.W)))
   
   for(i <- 0 until redundancy) {
-    syndromeRev(i) := io.syndrome(redundancy-1-i)
+    syndRev(i) := io.syndrome(redundancy-1-i)
   }
 
-  // Poly Mult: multiply syndrome and errata locator
+  ///////////////////////////////////
+  // Shift errataLoc
+  ///////////////////////////////////
 
-  for(locIndx <- 0 until tLen+1) { // tLen = 8 / redundancy = 16
-    for(syndIndx <- 0 until redundancy) {
-      syndXErrataLocArray(locIndx)(syndIndx) := gfMult(io.errataLocIf.bits.vec(locIndx), syndromeRev(syndIndx))
-    }
+  val shiftVec = Module(new ShiftBundleMod(UInt(symbWidth.W), tLen+1, numOfSymbEe))
+  shiftVec.io.vecIn.bits  := io.errataLocIf.bits.vec
+  shiftVec.io.vecIn.valid := io.errataLocIf.valid
+
+  // Connect shift output to combo stage(s)
+  val stage = for(i <- 0 until numOfSymbEe) yield Module(new ErrEvalStage)
+  val stageOut = Wire(Vec(numOfSymbEe, Vec(redundancy, UInt(symbWidth.W))))
+
+  for(i <- 0 until numOfSymbEe) {
+    stage(i).io.syndRev := syndRev
+    stage(i).io.errataLocSymb := shiftVec.io.vecOut.bits(i)
+    stageOut(i) := stage(i).io.syndXErrataLoc
   }
-  
-  diagXorAll.io.recMatrix := syndXErrataLocArray
+
+  ///////////////////////////////////
+  // Accum matrix
+  ///////////////////////////////////
+
+  val numOfCycles = math.ceil((tLen+1)/numOfSymbEe.toDouble).toInt
+  val accumMat = Module(new AccumMat(symbWidth, redundancy, numOfSymbEe, numOfCycles, tLen+1))
+  accumMat.io.vecIn := stageOut
+  val accumVld = RegNext(shiftVec.io.lastOut)
+
+  ///////////////////////////////////
+  // Calc Xor
+  ///////////////////////////////////
+
+  val diagXorAll = Module(new DiagonalXorAll(tLen+1, redundancy, symbWidth))
+
+  diagXorAll.io.recMatrix := accumMat.io.matOut
 
   // Pipeline
   val syndXErrataLoc = RegNext(diagXorAll.io.xorVect)
-  val syndXErrataLocVld = RegNext(next=io.errataLocIf.valid, init=false.B)
-  val posFfsQ = RegNext(io.errataLocIf.bits.ffs)
-
+  val syndXErrataLocVld = RegNext(next=accumVld, init=false.B)
+  
+  ///////////////////////////////////
   // Poly Divide
   // Divisor could vary from 1'b1 up to { 1'b1, {T_LEN-1{1'b0}} }
+  ///////////////////////////////////
 
   val errorEvalArray = Wire(Vec(tLen, (Vec(tLen, UInt(symbWidth.W)))))
 
@@ -47,18 +71,36 @@ class ErrEval extends Module with GfParams {
     }
   }
 
-  val errEval = Mux1H(posFfsQ, errorEvalArray)
+  val errEval = Mux1H(io.errataLocIf.bits.ffs, errorEvalArray)
   val errEvalExp = Wire(Vec(tLen+1, UInt(symbWidth.W)))
   val errEvalExpQ = Reg(Vec(tLen+1, UInt(symbWidth.W)))
+
+  val errEvalFfs = RegInit(UInt((tLen+1).W), 0.U)
 
   // Expand errEval vec
   errEvalExp := errEval ++ 0.U.asTypeOf(Vec(1, UInt(symbWidth.W)))
 
+  // Capture vec and ffs
   when(syndXErrataLocVld) {
+    errEvalFfs := io.errataLocIf.bits.ffs
     errEvalExpQ := errEvalExp
   }
 
   io.errEvalIf.valid := RegNext(next=syndXErrataLocVld, init=false.B)
-  io.errEvalIf.bits := errEvalExpQ
+  io.errEvalIf.bits.vec := errEvalExpQ
+  io.errEvalIf.bits.ffs := errEvalFfs
+
+}
+
+class ErrEvalStage extends Module with GfParams {
+  val io = IO(new Bundle {
+    val errataLocSymb = Input(UInt(symbWidth.W))
+    val syndRev = Input(Vec(redundancy, UInt(symbWidth.W)))
+    val syndXErrataLoc = Output(Vec(redundancy, UInt(symbWidth.W)))
+  })
+
+  for(syndIndx <- 0 until redundancy) {
+    io.syndXErrataLoc(syndIndx) := gfMult(io.errataLocSymb, io.syndRev(syndIndx))
+  }
 
 }
