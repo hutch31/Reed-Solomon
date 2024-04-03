@@ -12,11 +12,7 @@ class RsForney extends Module with GfParams {
     val formalDerIf    = Output(Vec(tLen, UInt(symbWidth.W)))
     val errEvalXlInvIf = Output(Valid(new vecFfsIf(tLen)))
   })
-
-  //////////////////////////////////////
-  //  INTERFACES
-  //////////////////////////////////////
-
+  
   //////////////////////////////////////
   // need to convert the positions to coefficients
   // degrees for the errata locator algo to work
@@ -60,17 +56,17 @@ class RsForney extends Module with GfParams {
   // Modules instantiation
   //////////////////////////////////////
 
-  val errataLocator = Module(new ErrataLocatorPar)
-  val errorEvaluator = Module(new ErrEval)
+  val errataLoc = Module(new ErrataLoc)
+  val errEval = Module(new ErrEval)
   val errEvalXlInv = Module(new ErrEvalXlInv)
   val formalDer = Module(new FormalDerivative)
 
   // ErrataLocator
-  errataLocator.io.errPosCoefIf <> errPosCoefIf
-  errorEvaluator.io.errataLocIf <> errataLocator.io.errataLocIf
-  errorEvaluator.io.syndrome := io.syndrome
+  errataLoc.io.errPosCoefIf <> errPosCoefIf
+  errEval.io.errataLocIf <> errataLoc.io.errataLocIf
+  errEval.io.syndrome := io.syndrome
 
-  errEvalXlInv.io.errEvalIf <> errorEvaluator.io.errEvalIf
+  errEvalXlInv.io.errEvalIf <> errEval.io.errEvalIf
   errEvalXlInv.io.XlInvIf <> XlInvFfsIf
 
   formalDer.io.XlInvIf <> XlInvFfsIf
