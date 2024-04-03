@@ -49,6 +49,8 @@ trait GfParams {
   val numOfStagesEe0 = 3
   val numOfComboLenEe0 = 3
 
+  val numOfSymbEe = 3
+
   require(numOfComboLenEe0 <= tLen-1, "Ee0 Combo length less than (tLen-1)")
   val numOfQStagesEe0 = if(numOfComboLenEe0 == tLen-1) 1 else (tLen-1)/numOfComboLenEe0+1
 
@@ -104,7 +106,7 @@ trait GfParams {
   //////////////////////////
   // Forney bundles
   //////////////////////////
-    
+
   class vecFfsIf(width: Int) extends Bundle {
     val vec = Vec(width, UInt(symbWidth.W))
     val ffs = UInt(width.W)
