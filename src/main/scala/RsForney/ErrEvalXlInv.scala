@@ -5,12 +5,12 @@ import chisel3.util._
 
 class ErrEvalXlInv extends Module with GfParams {
   val io = IO(new Bundle {
-    val errEvalIf = Input(Valid(Vec(tLen+1, UInt(symbWidth.W))))
+    val errEvalIf = Input(Valid(new vecFfsIf(tLen+1)))
     val XlInvIf = Input(Valid(new vecFfsIf(tLen)))
     val errEvalXlInvIf = Output(Valid(new vecFfsIf(tLen)))
   })
 
-  val shiftVec = Module(new ShiftVec(tLen, symbWidth, numOfQStagesEe0))
+  val shiftVec = Module(new ShiftBundleMod(UInt(symbWidth.W), tLen, numOfQStagesEe0))
   val stage = for(i <- 0 until numOfQStagesEe0) yield Module(new ErrEvalXlInvStage)
   val stageOut = Wire(Vec(numOfQStagesEe0, Vec(tLen+1, UInt(symbWidth.W))))
 
@@ -19,9 +19,9 @@ class ErrEvalXlInv extends Module with GfParams {
   shiftVec.io.vecIn.valid := io.errEvalIf.valid
 
   for(i <- 0 until numOfQStagesEe0) {
-    stage(i).io.vecIn.bits := io.errEvalIf.bits
-    stage(i).io.vecIn.valid := shiftVec.io.vecOut.bits.last
-    stage(i).io.XlInvSymbIn := shiftVec.io.vecOut.bits.vec(i)
+    stage(i).io.vecIn.bits := io.errEvalIf.bits.vec
+    stage(i).io.vecIn.valid := shiftVec.io.lastOut
+    stage(i).io.XlInvSymb := shiftVec.io.vecOut.bits(i)
     stageOut(i) := stage(i).io.vecOut.bits
   }
 
@@ -61,7 +61,7 @@ class ErrEvalXlInv extends Module with GfParams {
 class ErrEvalXlInvStage extends Module with GfParams {
   val io = IO(new Bundle {
     val vecIn = Input(Valid(Vec(tLen+1, UInt(symbWidth.W))))
-    val XlInvSymbIn = Input(UInt(symbWidth.W))
+    val XlInvSymb = Input(UInt(symbWidth.W))
     val vecOut = Output(Valid(Vec(tLen+1, UInt(symbWidth.W))))
   })
 
@@ -72,8 +72,6 @@ class ErrEvalXlInvStage extends Module with GfParams {
 
   io.vecOut.bits := qStage(numOfQStagesEe0-1)
   io.vecOut.valid := ShiftRegister(io.vecIn.valid, numOfQStagesEe0, false.B, true.B)
-  // numOfComboLenEe0 = 3
-  // numOfQStagesEe0 = 3
 
   for(i <- 0 until numOfQStagesEe0) {
     val start_indx = 1+i*numOfComboLenEe0
@@ -83,7 +81,7 @@ class ErrEvalXlInvStage extends Module with GfParams {
 
     if(i == 0) {
       initStage := io.vecIn.bits
-      initXlInv := io.XlInvSymbIn
+      initXlInv := io.XlInvSymb
     }
     else {
       initStage := qStage(i-1)
