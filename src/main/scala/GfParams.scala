@@ -45,11 +45,15 @@ trait GfParams {
   val numOfComboLenFd1 = 3
   val numOfQStagesFd1 = (tLen-1)/numOfComboLenFd1
 
-  // EE - error evaluator params
+  // ErrEval
+  val numOfSymbEe = 3
+
+  // ErrEvalXlInv
   val numOfStagesEe0 = 3
   val numOfComboLenEe0 = 3
 
-  val numOfSymbEe = 3
+  // ErrVal
+  val numOfSymbEv = 3
 
   require(numOfComboLenEe0 <= tLen-1, "Ee0 Combo length less than (tLen-1)")
   val numOfQStagesEe0 = if(numOfComboLenEe0 == tLen-1) 1 else (tLen-1)/numOfComboLenEe0+1
@@ -186,6 +190,18 @@ trait GfParams {
       mult := alphaToSymb(alphaSum)
     }
     mult
+  }
+
+  def gfDiv (dividend: UInt, divider: UInt) : UInt = {
+    val alphaDivd = symbToAlpha(dividend)
+    val alphaDvdr = symbToAlpha(divider)
+    val alphaDiff = (fieldChar.U+alphaDivd-alphaDvdr)%fieldChar.U
+    val gfDivVal = Wire(UInt(symbWidth.W))
+    if(dividend == 0)
+      gfDivVal := 0.U
+    else
+      gfDivVal := alphaToSymb(alphaDiff)
+    gfDivVal
   }
 
   def gfInv(symb : UInt) : UInt = {
