@@ -11,8 +11,10 @@ class RsForney extends Module with GfParams {
     val syndrome = Input(Vec(redundancy, UInt(symbWidth.W)))
     val formalDerIf    = Output(Vec(tLen, UInt(symbWidth.W)))
     val errEvalXlInvIf = Output(Valid(new vecFfsIf(tLen)))
+    val errValIf = Output(Valid(new vecFfsIf(tLen)))
+    val errValStageOut = Output(Vec(numOfSymbEv, UInt(symbWidth.W)))
   })
-  
+
   //////////////////////////////////////
   // need to convert the positions to coefficients
   // degrees for the errata locator algo to work
@@ -60,6 +62,7 @@ class RsForney extends Module with GfParams {
   val errEval = Module(new ErrEval)
   val errEvalXlInv = Module(new ErrEvalXlInv)
   val formalDer = Module(new FormalDerivative)
+  val errVal = Module(new ErrVal)
 
   // ErrataLocator
   errataLoc.io.errPosCoefIf <> errPosCoefIf
@@ -72,10 +75,14 @@ class RsForney extends Module with GfParams {
   formalDer.io.XlInvIf <> XlInvFfsIf
   formalDer.io.Xl := Xl
 
+  errVal.io.formalDerIf <> formalDer.io.formalDerIf
+  errVal.io.errEvalXlInvIf <> errEvalXlInv.io.errEvalXlInvIf
+  errVal.io.Xl := Xl
+
   io.errEvalXlInvIf <> errEvalXlInv.io.errEvalXlInvIf
   io.formalDerIf := formalDer.io.formalDerIf
-
-  
+  io.errValIf <> errVal.io.errValIf
+  io.errValStageOut := errVal.io.errValStageOut
 }
 
 // runMain Rs.GenForney
