@@ -42,9 +42,11 @@ class ErrEvalXlInv extends Module with GfParams {
   val sel = io.XlInvIf.bits.ffs << 1
   val errEvalXlInvVec = Reg(Vec(tLen, UInt(symbWidth.W)))
   val errEvalXlInvVld = RegNext(next=lastQ, 0.U)
+  val errEvalXlInvFfs = Reg(UInt(tLen.W))
 
   when(lastQ) {
     errEvalXlInvVec := Mux1H(sel, accumMat.io.matTOut)
+    errEvalXlInvFfs := io.XlInvIf.bits.ffs // TODO: connect to the io.errEvalIf.bits.ffs
   }
 
   ///////////////////////////////////
@@ -53,8 +55,8 @@ class ErrEvalXlInv extends Module with GfParams {
 
   io.errEvalXlInvIf.bits.vec := errEvalXlInvVec
   io.errEvalXlInvIf.valid := errEvalXlInvVld
-  // TODO : DO we need ffs ?!
-  io.errEvalXlInvIf.bits.ffs := 0.U
+  // TODO : What FFS to connect ?! 
+  io.errEvalXlInvIf.bits.ffs := errEvalXlInvFfs
 
 }
 
