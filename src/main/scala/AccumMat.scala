@@ -8,6 +8,7 @@ class AccumMat(symbWidth: Int, vecWidth: Int, vecNum : Int, pipeWidth: Int, matC
   require(matCol <= pipeWidth*vecNum, "[ERROR] Matrix accumulator.")
   val io = IO(new Bundle {
     val vecIn = Input(Vec(vecNum, (Vec(vecWidth, UInt(symbWidth.W)))))
+    val matPipeOut = Output(Vec(pipeWidth, (Vec(vecNum, (Vec(vecWidth, (UInt(symbWidth.W))))))))
     val matOut = Output(Vec(matCol, (Vec(vecWidth, UInt(symbWidth.W)))))
     val matTOut = Output(Vec(vecWidth, (Vec(matCol, UInt(symbWidth.W)))))
   })
@@ -35,5 +36,6 @@ class AccumMat(symbWidth: Int, vecWidth: Int, vecNum : Int, pipeWidth: Int, matC
   }
 
   io.matOut := mat
+  io.matPipeOut := pipeVecQ
 
 }
