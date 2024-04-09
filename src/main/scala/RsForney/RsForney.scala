@@ -7,12 +7,10 @@ import chisel3.util._
 
 class RsForney extends Module with GfParams {
   val io = IO(new Bundle {
-    val posArray = Input(new NumPosIf)
+    val errPosIf = Input(Valid(new vecFfsIf(tLen)))
     val syndrome = Input(Vec(redundancy, UInt(symbWidth.W)))
-    val formalDerIf    = Output(Vec(tLen, UInt(symbWidth.W)))
-    val errEvalXlInvIf = Output(Valid(new vecFfsIf(tLen)))
     val errValIf = Output(Valid(new vecFfsIf(tLen)))
-    val errValStageOut = Output(Vec(numOfSymbEv, UInt(symbWidth.W)))
+    val errPosOutIf = Output(Valid(new vecFfsIf(tLen)))
   })
 
   //////////////////////////////////////
@@ -22,14 +20,14 @@ class RsForney extends Module with GfParams {
   //////////////////////////////////////
 
   val ffs = Module(new FindFirstSet(tLen))
-  ffs.io.in := io.posArray.sel
+  ffs.io.in := io.errPosIf.bits.ffs
 
   val errPosCoefIf = Wire(Valid(new vecFfsIf(tLen)))
   errPosCoefIf.bits.ffs := ffs.io.out
-  errPosCoefIf.valid := io.posArray.valid
+  errPosCoefIf.valid := io.errPosIf.valid
 
   for(i <- 0 until tLen)
-    errPosCoefIf.bits.vec(i) := (nLen-1).U-io.posArray.pos(i)
+    errPosCoefIf.bits.vec(i) := (nLen-1).U-io.errPosIf.bits.vec(i)
 
   //////////////////////////////////////
   // Xl and XlInv
@@ -49,10 +47,10 @@ class RsForney extends Module with GfParams {
 
   XlInvFfsIf.bits.vec := XlInv
   XlInvFfsIf.bits.ffs := ffs.io.out
-  XlInvFfsIf.valid := io.posArray.valid
+  XlInvFfsIf.valid := io.errPosIf.valid
 
   //XlInvVldIf.bits.vec := XlInv
-  //XlInvVldIf.valid := io.posArray.valid
+  //XlInvVldIf.valid := io.errPosIf.valid
 
   //////////////////////////////////////
   // Modules instantiation
@@ -63,7 +61,8 @@ class RsForney extends Module with GfParams {
   val errEvalXlInv = Module(new ErrEvalXlInv)
   val formalDer = Module(new FormalDerivative)
   val errVal = Module(new ErrVal)
-
+  // TODO: Is 4 Entries enought ? 
+  val queueErrPos = Module(new QueueFwft(new vecFfsIf(tLen), 4))
   // ErrataLocator
   errataLoc.io.errPosCoefIf <> errPosCoefIf
   errEval.io.errataLocIf <> errataLoc.io.errataLocIf
@@ -79,10 +78,17 @@ class RsForney extends Module with GfParams {
   errVal.io.errEvalXlInvIf <> errEvalXlInv.io.errEvalXlInvIf
   errVal.io.Xl := Xl
 
-  io.errEvalXlInvIf <> errEvalXlInv.io.errEvalXlInvIf
-  io.formalDerIf := formalDer.io.formalDerIf
   io.errValIf <> errVal.io.errValIf
-  io.errValStageOut := errVal.io.errValStageOut
+
+  queueErrPos.io.enq.valid := io.errPosIf.valid
+  queueErrPos.io.enq.bits.vec := io.errPosIf.bits.vec
+  queueErrPos.io.enq.bits.ffs := io.errPosIf.bits.ffs
+
+  queueErrPos.io.deq.ready := io.errValIf.valid
+  io.errPosOutIf.bits.vec := queueErrPos.io.deq.bits.vec
+  io.errPosOutIf.bits.ffs := queueErrPos.io.deq.bits.ffs
+  io.errPosOutIf.valid := queueErrPos.io.deq.valid
+
 }
 
 // runMain Rs.GenForney
@@ -93,6 +99,7 @@ object GenForney extends App {
   //ChiselStage.emitSystemVerilogFile(new ErrEvalXlInv(), Array())
   //ChiselStage.emitSystemVerilogFile(new ShiftTest(), Array())
   ChiselStage.emitSystemVerilogFile(new RsForney(), Array())
+  //ChiselStage.emitSystemVerilogFile(new GfDiv(), Array())
   //ChiselStage.emitSystemVerilogFile(new FormalDerivative(), Array())
   //ChiselStage.emitSystemVerilogFile(new FormalDerivativeStage1(), Array())
 }
