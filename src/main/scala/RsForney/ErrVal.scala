@@ -6,12 +6,9 @@ import chisel3.util._
 class ErrVal extends Module with GfParams {
   val io = IO(new Bundle {
     val formalDerIf    = Input(Vec(tLen, UInt(symbWidth.W)))
-    //val formalDerIf    = Input(Valid(new vecFfsIf(tLen)))
     val errEvalXlInvIf = Input(Valid(new vecFfsIf(tLen)))
-    //val XlIf = Input(Valid(new vecFfsIf(tLen)))
     val Xl = Input(Vec(tLen, (UInt(symbWidth.W))))
     val errValIf = Output(Valid(new vecFfsIf(tLen)))
-    val errValStageOut = Output(Vec(numOfSymbEv, UInt(symbWidth.W)))
   })
 
   ///////////////////////////
@@ -60,13 +57,11 @@ class ErrVal extends Module with GfParams {
 
   val errEvalXlInvAdj = Wire(Vec(numOfSymbEv, UInt(symbWidth.W)))
   val errValStageOut = Wire(Vec(numOfSymbEv, UInt(symbWidth.W)))
-
+  
   for(i <- 0 until numOfSymbEv) {
     errEvalXlInvAdj(i) := gfMult(errEvalXlInvShift(i), XlShift(i))
     errValStageOut(i) := gfDiv(errEvalXlInvAdj(i), formDerShift(i))
   }
-
-  io.errValStageOut := errValStageOut
 
   ///////////////////////////
   // Accum Vector
