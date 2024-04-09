@@ -9,7 +9,7 @@ trait GfParams {
   val symbWidth = 8
   val symbNum = 1 << symbWidth
   val poly = 285
-  val fieldChar = (1 << symbWidth)-1
+  val fieldChar = symbNum-1
   val firstRootPower = 1
 
   val nLen = 255
@@ -195,12 +195,13 @@ trait GfParams {
   def gfDiv (dividend: UInt, divider: UInt) : UInt = {
     val alphaDivd = symbToAlpha(dividend)
     val alphaDvdr = symbToAlpha(divider)
-    val alphaDiff = (fieldChar.U+alphaDivd-alphaDvdr)%fieldChar.U
+    val alphaDiff = (fieldChar.U.asTypeOf(UInt((symbWidth+1).W))+alphaDivd-alphaDvdr)%fieldChar.U
     val gfDivVal = Wire(UInt(symbWidth.W))
-    if(dividend == 0)
+    when(dividend === 0.U) {
       gfDivVal := 0.U
-    else
+    }.otherwise {
       gfDivVal := alphaToSymb(alphaDiff)
+    }
     gfDivVal
   }
 
