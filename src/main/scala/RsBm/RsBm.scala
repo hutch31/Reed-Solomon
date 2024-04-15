@@ -7,12 +7,13 @@ import chisel3.util._
 class RsBm extends Module with GfParams {
   val io = IO(new Bundle {
     val syndIf = Input(Valid(Vec(redundancy, UInt(symbWidth.W))))
-    val errLoc = Output(Vec(tLen+1, UInt(symbWidth.W)))
+    val errLoc = Output(Valid(Vec(tLen+1, UInt(symbWidth.W))))
   })
   val lenWidth = log2Ceil(redundancy)
   val rsBmStage = for(i <- 0 until numOfSymbBm) yield  Module(new RsBmStage(lenWidth))
 
   val syndInvVec = Wire(Vec(redundancy, Vec(tLen+1, UInt(symbWidth.W))))
+  dontTouch(syndInvVec)
 
   for(rootIndx <- 0 until redundancy) {
     for(symbIndx <- 0 until tLen+1) {
@@ -32,7 +33,7 @@ class RsBm extends Module with GfParams {
   class ShiftUnit extends Bundle {
     val syndInv = Vec(tLen+1, UInt(symbWidth.W))
     val iterI = UInt(lenWidth.W)
-    //val ffs = Bool()
+    val eop = Bool()
   }
 
   // Map inputs
@@ -40,7 +41,11 @@ class RsBm extends Module with GfParams {
 
   for(i <- 0 until redundancy) {
     shiftMod.io.vecIn.bits(i).syndInv := syndInvVec(i)
-    shiftMod.io.vecIn.bits(i).iterI := i.U
+    shiftMod.io.vecIn.bits(i).iterI := (1+i).U
+    if(i == redundancy-1)
+      shiftMod.io.vecIn.bits(i).eop := true.B
+    else
+      shiftMod.io.vecIn.bits(i).eop := false.B
   }
 
   ///////////////////////////
@@ -48,6 +53,7 @@ class RsBm extends Module with GfParams {
   ///////////////////////////
 
   val errLocQ = Reg(Vec(tLen+1, UInt(symbWidth.W)))
+  //val errLocVldQ = RegInit(Bool(), 0.U)
   val errLocLenQ = Reg(UInt(lenWidth.W))
   val auxBQ = Reg(Vec(tLen+1, UInt(symbWidth.W)))
 
@@ -68,22 +74,14 @@ class RsBm extends Module with GfParams {
     errLocLenQ := rsBmStage(numOfSymbBm-1).io.errLocLenOut
   }
 
+  if(numOfSymbBm == 1) {
+
+  }
   ///////////////////////////
   // Combo stage
   ///////////////////////////
 
   val errLocLenVec = Reg(Vec(numOfSymbBm, UInt(lenWidth.W)))
-  val syndInvVecVld = Wire(Vec(numOfSymbBm, Vec(tLen+1, UInt(symbWidth.W))))
-
-  for(stageIndx <- 0 until numOfSymbBm) {
-    for(symbIndx <- 0 until tLen+1) {
-      when(errLocLenVec(stageIndx) < symbIndx.U) {
-        syndInvVecVld(stageIndx)(symbIndx) := shiftMod.io.vecOut.bits(stageIndx).syndInv(symbIndx)
-      }.otherwise {
-        syndInvVecVld(stageIndx)(symbIndx) := 0.U
-      }
-    }
-  }
 
   rsBmStage(0).io.iterI       := shiftMod.io.vecOut.bits(0).iterI
   rsBmStage(0).io.syndInvIn   := shiftMod.io.vecOut.bits(0).syndInv
@@ -96,7 +94,7 @@ class RsBm extends Module with GfParams {
   if(numOfSymbBm > 1) {
     for(i <- 0 until numOfSymbBm) {
       rsBmStage(i).io.iterI       := shiftMod.io.vecOut.bits(i).iterI
-      rsBmStage(i).io.syndInvIn   := syndInvVecVld(i)
+      rsBmStage(i).io.syndInvIn   := shiftMod.io.vecOut.bits(i).syndInv
       rsBmStage(i).io.errLocIn    := rsBmStage(i-1).io.errLocOut
       rsBmStage(i).io.auxBIn      := rsBmStage(i-1).io.auxBOut
       rsBmStage(i).io.errLocLenIn := rsBmStage(i-1).io.errLocLenOut
@@ -105,7 +103,8 @@ class RsBm extends Module with GfParams {
   }
 
   // TODO: connect proper output
-  io.errLoc := rsBmStage(numOfSymbBm-1).io.errLocOut
+  io.errLoc.bits := rsBmStage(numOfSymbBm-1).io.errLocOut
+  io.errLoc.valid := false.B
   
 }
 
@@ -119,29 +118,46 @@ class RsBmStage(lenWidth: Int) extends Module with GfParams {
     val auxBOut = Output(Vec(tLen+1, UInt(symbWidth.W)))
     val errLocLenIn = Input(UInt(lenWidth.W))
     val errLocLenOut = Output(UInt(lenWidth.W))
-
-    // TODO: delete me
-    val deltaInv = Output(UInt(symbWidth.W))
-    val BxX = Output(Vec(tLen+1, UInt(symbWidth.W)))    
   })
+
+  val syndInvVld = Wire(Vec(tLen+1, UInt(symbWidth.W)))
+  dontTouch(syndInvVld)
+
+  for(symbIndx <- 0 until tLen+1) {
+    when(io.errLocLenIn < symbIndx.U) {
+      syndInvVld(symbIndx) := 0.U
+    }.otherwise{
+      syndInvVld(symbIndx) := io.syndInvIn(symbIndx)
+    }
+  }
 
   // Find delta
   // gfPolyMult()
-  val deltaIntrm = (io.syndInvIn zip io.errLocIn).map{case(a,b) => gfMult(a,b)}
+  val deltaIntrm = Wire(Vec(tLen+1, UInt(symbWidth.W)))
+  for(i <- 0 until tLen+1) {
+    deltaIntrm(i) := gfMult(syndInvVld(i), io.errLocIn(i))
+  }
+  //deltaIntrm := (syndInvVld zip io.errLocIn).map{case(a,b) => gfMult(a,b)}
+  //val deltaIntrm = (syndInvVld zip io.errLocIn).map{case(a,b) => gfMult(a,b)}
+
+  dontTouch(deltaIntrm)
   val delta = deltaIntrm.reduce(_^_)
   val deltaInv = gfInv(delta)
 
-  io.deltaInv := deltaInv
-
   val BxX = gfPolyMultX(io.auxBIn)
-  val BxXxDelta = (BxX).map(gfMult(_, delta))
-  io.BxX := BxXxDelta
+
+  val BxXxDelta = Wire(Vec(tLen+1, UInt(symbWidth.W)))
+  BxXxDelta := (BxX).map(gfMult(_, delta))
 
   val errLocLenx2 = io.errLocLenIn << 1
+  dontTouch(errLocLenx2)
+  dontTouch(deltaInv)
+  dontTouch(BxX)
+  dontTouch(BxXxDelta)
 
   when(delta =/= 0.U) {
     io.errLocOut := (io.errLocIn zip BxXxDelta).map{case(a,b) => a ^ b}
-    when(errLocLenx2 <= io.iterI) {
+    when(errLocLenx2 <= (io.iterI-1.U)) {
       io.errLocLenOut := io.iterI - io.errLocLenIn
       io.auxBOut := (io.errLocIn).map(gfMult(_, deltaInv))
     }.otherwise{
@@ -155,8 +171,6 @@ class RsBmStage(lenWidth: Int) extends Module with GfParams {
   }
 
 }
-
-// runmain Rs.GenBm
 
 object GenBm extends App {
   //ChiselStage.emitSystemVerilogFile(new RsBmStage(4), Array())
