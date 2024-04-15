@@ -7,14 +7,12 @@ import chisel3.util._
 class RsBm extends Module with GfParams {
   val io = IO(new Bundle {
     val syndIf = Input(Valid(Vec(redundancy, UInt(symbWidth.W))))
-    val syndInvVec = Output(Vec(redundancy, Vec(tLen+1, UInt(symbWidth.W))))
     val errLoc = Output(Vec(tLen+1, UInt(symbWidth.W)))
   })
-
   val lenWidth = log2Ceil(redundancy)
+  val rsBmStage = for(i <- 0 until numOfSymbBm) yield  Module(new RsBmStage(lenWidth))
 
   val syndInvVec = Wire(Vec(redundancy, Vec(tLen+1, UInt(symbWidth.W))))
-  io.syndInvVec := syndInvVec
 
   for(rootIndx <- 0 until redundancy) {
     for(symbIndx <- 0 until tLen+1) {
@@ -48,7 +46,6 @@ class RsBm extends Module with GfParams {
   ///////////////////////////
   // Regs stage
   ///////////////////////////
-  val rsBmStage = for(i <- 0 until numOfSymbBm) yield  Module(new RsBmStage(lenWidth))
 
   val errLocQ = Reg(Vec(tLen+1, UInt(symbWidth.W)))
   val errLocLenQ = Reg(UInt(lenWidth.W))
@@ -74,20 +71,36 @@ class RsBm extends Module with GfParams {
   ///////////////////////////
   // Combo stage
   ///////////////////////////
-  
+
+  val errLocLenVec = Reg(Vec(numOfSymbBm, UInt(lenWidth.W)))
+  val syndInvVecVld = Wire(Vec(numOfSymbBm, Vec(tLen+1, UInt(symbWidth.W))))
+
+  for(stageIndx <- 0 until numOfSymbBm) {
+    for(symbIndx <- 0 until tLen+1) {
+      when(errLocLenVec(stageIndx) < symbIndx.U) {
+        syndInvVecVld(stageIndx)(symbIndx) := shiftMod.io.vecOut.bits(stageIndx).syndInv(symbIndx)
+      }.otherwise {
+        syndInvVecVld(stageIndx)(symbIndx) := 0.U
+      }
+    }
+  }
+
   rsBmStage(0).io.iterI       := shiftMod.io.vecOut.bits(0).iterI
   rsBmStage(0).io.syndInvIn   := shiftMod.io.vecOut.bits(0).syndInv
   rsBmStage(0).io.errLocIn    := errLocQ
   rsBmStage(0).io.auxBIn      := auxBQ
   rsBmStage(0).io.errLocLenIn := errLocLenQ
 
+  errLocLenVec(0) := errLocLenQ
+
   if(numOfSymbBm > 1) {
     for(i <- 0 until numOfSymbBm) {
       rsBmStage(i).io.iterI       := shiftMod.io.vecOut.bits(i).iterI
-      rsBmStage(i).io.syndInvIn   := shiftMod.io.vecOut.bits(i).syndInv
+      rsBmStage(i).io.syndInvIn   := syndInvVecVld(i)
       rsBmStage(i).io.errLocIn    := rsBmStage(i-1).io.errLocOut
       rsBmStage(i).io.auxBIn      := rsBmStage(i-1).io.auxBOut
       rsBmStage(i).io.errLocLenIn := rsBmStage(i-1).io.errLocLenOut
+      errLocLenVec(i) := rsBmStage(i-1).io.errLocLenOut
     }
   }
 
