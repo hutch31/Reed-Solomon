@@ -53,9 +53,14 @@ class RsBm extends Module with GfParams {
   ///////////////////////////
 
   val errLocQ = Reg(Vec(tLen+1, UInt(symbWidth.W)))
-  //val errLocVldQ = RegInit(Bool(), 0.U)
+  val errLocVldQ = RegInit(Bool(), 0.U)
   val errLocLenQ = Reg(UInt(lenWidth.W))
   val auxBQ = Reg(Vec(tLen+1, UInt(symbWidth.W)))
+
+  val stageOut = Wire(Vec(numOfSymbBm, (Vec(tLen+1, UInt(symbWidth.W)))))
+  val errLocVldStage = shiftMod.io.vecOut.bits.map(_.eop)
+
+  errLocVldQ := errLocVldStage.reduce(_||_) && shiftMod.io.lastOut
 
   when(io.syndIf.valid) {
     errLocLenQ := 0.U
@@ -69,14 +74,19 @@ class RsBm extends Module with GfParams {
       }
     }
   }.otherwise {
-    errLocQ := rsBmStage(numOfSymbBm-1).io.errLocOut
+    //errLocQ := rsBmStage(numOfSymbBm-1).io.errLocOut
     auxBQ := rsBmStage(numOfSymbBm-1).io.auxBOut
     errLocLenQ := rsBmStage(numOfSymbBm-1).io.errLocLenOut
+    when(shiftMod.io.lastOut) {
+      if(numOfSymbBm == 1)
+        errLocQ := stageOut(numOfSymbBm-1)
+      else
+        errLocQ := Mux1H(errLocVldStage, stageOut)
+    }.otherwise {
+        errLocQ := stageOut(numOfSymbBm-1)
+    }
   }
 
-  if(numOfSymbBm == 1) {
-
-  }
   ///////////////////////////
   // Combo stage
   ///////////////////////////
@@ -88,23 +98,24 @@ class RsBm extends Module with GfParams {
   rsBmStage(0).io.errLocIn    := errLocQ
   rsBmStage(0).io.auxBIn      := auxBQ
   rsBmStage(0).io.errLocLenIn := errLocLenQ
-
+  stageOut(0) := rsBmStage(0).io.errLocOut
   errLocLenVec(0) := errLocLenQ
 
   if(numOfSymbBm > 1) {
-    for(i <- 0 until numOfSymbBm) {
+    for(i <- 1 until numOfSymbBm) {
       rsBmStage(i).io.iterI       := shiftMod.io.vecOut.bits(i).iterI
       rsBmStage(i).io.syndInvIn   := shiftMod.io.vecOut.bits(i).syndInv
       rsBmStage(i).io.errLocIn    := rsBmStage(i-1).io.errLocOut
       rsBmStage(i).io.auxBIn      := rsBmStage(i-1).io.auxBOut
       rsBmStage(i).io.errLocLenIn := rsBmStage(i-1).io.errLocLenOut
+      stageOut(i)     := rsBmStage(i).io.errLocOut
       errLocLenVec(i) := rsBmStage(i-1).io.errLocLenOut
     }
   }
 
   // TODO: connect proper output
-  io.errLoc.bits := rsBmStage(numOfSymbBm-1).io.errLocOut
-  io.errLoc.valid := false.B
+  io.errLoc.bits := errLocQ
+  io.errLoc.valid := errLocVldQ
   
 }
 
@@ -121,7 +132,6 @@ class RsBmStage(lenWidth: Int) extends Module with GfParams {
   })
 
   val syndInvVld = Wire(Vec(tLen+1, UInt(symbWidth.W)))
-  dontTouch(syndInvVld)
 
   for(symbIndx <- 0 until tLen+1) {
     when(io.errLocLenIn < symbIndx.U) {
