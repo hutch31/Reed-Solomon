@@ -1,3 +1,5 @@
+// TODO: eval latency for each block and create a param.
+
 package Rs
 
 import chisel3._
@@ -6,11 +8,18 @@ import chisel3.util.{log2Ceil}
 
 trait GfParams {
 
+  //////////////////////////////
+  // Code params
+  //////////////////////////////
+
   val symbWidth = 8
   val symbNum = 1 << symbWidth
   val poly = 285
   val fieldChar = symbNum-1
+  val firstConsecutiveRoot = 0
+  // 
   val firstRootPower = 1
+
 
   val nLen = 255
   val kLen = 239
@@ -18,18 +27,32 @@ trait GfParams {
   val tLen = redundancy/2
 
   //////////////////////////////
+  // Input bus parameterization
+  //////////////////////////////
+  
+  val axisWidth = 4
+  val msgDuration = nLen/axisWidth
+
+  //////////////////////////////
   // Chien parameterization
   //////////////////////////////
   
+  val chienComboLen = 2
+  
+  // num of stage to eval GF Poly in point 'x' equals to tLen
+  require(chienComboLen <= tLen-1, "")
+  val chienQLen = (tLen-1)/chienComboLen
+
   val chienRootsPerCycle = 16
-  val chienRootsNum = symbNum - 2
-  val chienNonValid = ((1 << (chienRootsNum % chienRootsPerCycle)) -1).U
-  val chienCyclesNum = calcChienCyclesNum(chienRootsNum, chienRootsPerCycle)
-  val chienCntrWidth = log2Ceil(chienCyclesNum)
 
   val ffStepPosToNum = 4
-  val ffStepPolyEval = 4
-  //val ffNumPolyEVal = (tLen/ffStepPolyEval).toInt-1
+  val ffStepPolyEval = 1
+    //val ffNumPolyEVal = (tLen/ffStepPolyEval).toInt-1
+  //////////////////////////////
+  // Berlekamp Massey parameterization
+  //////////////////////////////
+
+  val numOfSymbBm = 1
 
   //////////////////////////////
   // Forney parameterization
@@ -55,7 +78,7 @@ trait GfParams {
   // ErrVal
   val numOfSymbEv = 3
 
-  require(numOfComboLenEe0 <= tLen-1, "Ee0 Combo length less than (tLen-1)")
+  require(numOfComboLenEe0 <= tLen-1, "Ee0 Combo length more than (tLen-1)")
   val numOfQStagesEe0 = if(numOfComboLenEe0 == tLen-1) 1 else (tLen-1)/numOfComboLenEe0+1
 
   println("numOfStagesFd0: " + numOfStagesFd0)
@@ -103,18 +126,35 @@ trait GfParams {
   }
 
   class ErrLocatorBundle extends Bundle {
+    val errLocator = Vec(tLen+1, UInt(symbWidth.W))
+    val errLocatorSel = UInt((tLen+1).W)
+  }
+
+  class ErrLocatorBundle0 extends Bundle {
     val errLocator = Vec(tLen, UInt(symbWidth.W))
-    val errLocatorSel = UInt(tLen.W)
+    val errLocatorSel = UInt((tLen).W)
   }
 
   //////////////////////////
   // Forney bundles
   //////////////////////////
 
+  class axisIf(width: Int) extends Bundle {
+    val tdata = Vec(width, UInt(symbWidth.W))
+    val tkeep = UInt(width.W)
+    val tlast = Bool()
+  }
+
   class vecFfsIf(width: Int) extends Bundle {
     val vec = Vec(width, UInt(symbWidth.W))
     val ffs = UInt(width.W)
   }
+
+  class dataSelIf(width: Int) extends Bundle {
+    val data = (Vec(width, UInt(symbWidth.W)))
+    val sel  = UInt(width.W)
+  }
+
 
   def calcChienCyclesNum (rootsNum: Int, rootsPerCycle: Int): Int = {
     if(rootsNum % rootsPerCycle == 0)
@@ -195,6 +235,7 @@ trait GfParams {
   def gfDiv (dividend: UInt, divider: UInt) : UInt = {
     val alphaDivd = symbToAlpha(dividend)
     val alphaDvdr = symbToAlpha(divider)
+    // TODO: use +& instead of implicit cast.
     val alphaDiff = (fieldChar.U.asTypeOf(UInt((symbWidth+1).W))+alphaDivd-alphaDvdr)%fieldChar.U
     val gfDivVal = Wire(UInt(symbWidth.W))
     when(dividend === 0.U) {
@@ -204,13 +245,33 @@ trait GfParams {
     }
     gfDivVal
   }
-
+  
   def gfInv(symb : UInt) : UInt = {
     val alphaInv = Wire(UInt(symbWidth.W))
     alphaInv := (symbNum - 1).U - symbToAlpha(symb)
     val gfInverse =alphaToSymb(alphaInv)
     gfInverse
   }
+
+  def gfPow(x : UInt, degree : UInt) : UInt = {
+    val alpha = symbToAlpha(x)
+    val alphaPow = (alpha * degree) % fieldChar.U
+    val xDegree = alphaToSymb(alphaPow)
+    xDegree
+  }
+
+  def gfPolyMultX(poly: Vec[UInt]) : Vec[UInt] = {
+    val outVec = Wire(poly.cloneType)
+    outVec(0) := 0.U
+    for(i <- 0 until poly.size-1) {
+      outVec(i+1) := poly(i)
+    }
+    outVec
+  }
+
+  ////////////////////////////////////////////
+  // GF poly operations 
+  ////////////////////////////////////////////
 
   // TODO: simplify if firstRoot == 2(firstRootPower = 1)
   // then:
