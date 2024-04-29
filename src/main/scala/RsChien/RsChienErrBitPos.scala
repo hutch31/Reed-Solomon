@@ -11,21 +11,14 @@ class RsChienErrBitPos extends Module with GfParams {
     val errLocatorIf = Input(Valid(new ErrLocatorBundle()))
     val bitPos = Output(new BitPosIf)
   })
-
-  val polyEval = for(i <- 0 until chienRootsPerCycle) yield Module(new GfPolyEval())
-  val base = Wire(Vec(chienRootsPerCycle, UInt(symbWidth.W)))
-  val roots = Wire(Valid(Vec(chienRootsPerCycle, UInt(symbWidth.W))))
-  
-  for(i <- 0 until chienRootsPerCycle) {
-    base(i) := i.U
-  }
-
   // Localparams
   val rootsNum = symbNum - 1
   val numOfCycles = math.ceil(rootsNum/chienRootsPerCycle.toDouble).toInt
   val chienNonValid = ((1 << (rootsNum % chienRootsPerCycle)) -1)
-  println("chienNonValid: " + chienNonValid)
 
+  val polyEval = for(i <- 0 until chienRootsPerCycle) yield Module(new GfPolyEvalHorner(tLen+1, ffStepPolyEval))
+  val roots = Wire(Valid(Vec(chienRootsPerCycle, UInt(symbWidth.W))))
+  
   if(numOfCycles == 1) {
     for(i <- 0 until chienRootsPerCycle) {
       roots.bits := i.U
@@ -52,25 +45,32 @@ class RsChienErrBitPos extends Module with GfParams {
     roots.valid := io.errLocatorIf.valid | (cntr =/= 0.U)
   }
 
-  // Connect GfPolyEval
+  // Generate Sel  
+  val ffs = Module(new FindFirstSet(tLen+1))
+  val errLocatorSel = io.errLocatorIf.bits.errLocatorSel
+  ffs.io.in := errLocatorSel
+  val errLocatorFfs = ffs.io.out
+
   for(i <- 0 until chienRootsPerCycle) {
-    // Is it possible to use <> here to connect bundles
-    polyEval(i).io.errLocatorIf.errLocator := io.errLocatorIf.bits.errLocator
-    polyEval(i).io.errLocatorIf.errLocatorSel := io.errLocatorIf.bits.errLocatorSel
-    polyEval(i).io.inSymb.bits := roots.bits(i)
-    polyEval(i).io.inSymb.valid := roots.valid
+    polyEval(i).io.coefVec.bits.data := io.errLocatorIf.bits.errLocator
+    polyEval(i).io.coefVec.bits.sel := errLocatorFfs
+    polyEval(i).io.coefVec.valid := roots.valid
+    polyEval(i).io.x := roots.bits(i)
   }
 
-  val errVal = polyEval.map(_.io.evalValue.bits)
+  val errVal = VecInit(polyEval.map(_.io.evalValue.bits))
+  dontTouch(errVal)
   // Capture EvalVal into register
   val bitPos = Reg(Vec(chienRootsPerCycle, Bool() ))
   bitPos := errVal.map(x => ~x.orR)
 
   // We can use any Valid here, so take (0)
-  val bitPosVld = RegNext(next=polyEval(0).io.evalValue.valid, init=false.B)
+  val bitPosVld = polyEval(0).io.evalValue.valid
+  dontTouch(bitPosVld)
+  val bitPosVldQ = RegNext(next=bitPosVld, init=false.B)
 
   val lastCycle = Wire(Bool())
-  when(polyEval(0).io.evalValue.valid === 0.U & bitPosVld === 1.U){
+  when(bitPosVld === 0.U & bitPosVldQ === 1.U){
     lastCycle := 1.U
     io.bitPos.last := 1.U
   }.otherwise{
@@ -78,7 +78,7 @@ class RsChienErrBitPos extends Module with GfParams {
     io.bitPos.last := 0.U
   }
 
-  io.bitPos.valid := bitPosVld
+  io.bitPos.valid := bitPosVldQ
 
   when(lastCycle & chienNonValid.U =/= 0.U) {
     // Nulify bits that is not valid.
