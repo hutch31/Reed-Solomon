@@ -124,14 +124,14 @@ class RsChienPosOh extends Module with GfParams {
 /////////////////////////////////////////
 class RsChien extends Module with GfParams{
   val io = IO(new Bundle {
-    val errLocatorIf = Input(Valid(new ErrLocatorBundle()))
+    val errLocIf = Input(Valid(Vec(tLen+1, UInt(symbWidth.W))))   
     val posArray = Output(new NumPosIf)
   })
 
   val rsChienErrBitPos = Module(new RsChienErrBitPos)
   val rsChienBitPosToNum = Module(new RsChienBitPosToNum)
 
-  rsChienErrBitPos.io.errLocatorIf := io.errLocatorIf
+  rsChienErrBitPos.io.errLocIf := io.errLocIf
   rsChienBitPosToNum.io.bitPos := rsChienErrBitPos.io.bitPos
   io.posArray := rsChienBitPosToNum.io.posArray
 }
