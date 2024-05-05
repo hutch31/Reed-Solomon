@@ -8,7 +8,7 @@ import chisel3.util._
 
 class RsChienErrBitPos extends Module with GfParams {
   val io = IO(new Bundle {
-    val errLocatorIf = Input(Valid(new ErrLocatorBundle()))
+    val errLocIf = Input(Valid(Vec(tLen+1, UInt(symbWidth.W))))
     val bitPos = Output(new BitPosIf)
   })
   // Localparams
@@ -17,19 +17,20 @@ class RsChienErrBitPos extends Module with GfParams {
   val chienNonValid = ((1 << (rootsNum % chienRootsPerCycle)) -1)
 
   val polyEval = for(i <- 0 until chienRootsPerCycle) yield Module(new GfPolyEvalHorner(tLen+1, ffStepPolyEval))
+  //val polyEval = for(i <- 0 until chienRootsPerCycle) yield Module(new GfPolyEval(tLen+1))
   val roots = Wire(Valid(Vec(chienRootsPerCycle, UInt(symbWidth.W))))
   
   if(numOfCycles == 1) {
     for(i <- 0 until chienRootsPerCycle) {
       roots.bits := i.U
     }
-    roots.valid := io.errLocatorIf.valid
+    roots.valid := io.errLocIf.valid
   } else {
 
     val cntrUpLimit = (numOfCycles-1)*chienRootsPerCycle
     val cntr = RegInit(UInt(log2Ceil(rootsNum).W), 0.U)
 
-    when(io.errLocatorIf.valid === 1.U) {
+    when(io.errLocIf.valid === 1.U) {
       cntr := chienRootsPerCycle.U
     }.elsewhen(cntr =/= 0.U) {
       when(cntr =/= (cntrUpLimit).U) {
@@ -42,18 +43,11 @@ class RsChienErrBitPos extends Module with GfParams {
     for(i <- 0 until chienRootsPerCycle) {
       roots.bits(i) := alphaToSymb(cntr + i.U)
     }
-    roots.valid := io.errLocatorIf.valid | (cntr =/= 0.U)
+    roots.valid := io.errLocIf.valid | (cntr =/= 0.U)
   }
 
-  // Generate Sel  
-  val ffs = Module(new FindFirstSet(tLen+1))
-  val errLocatorSel = io.errLocatorIf.bits.errLocatorSel
-  ffs.io.in := errLocatorSel
-  val errLocatorFfs = ffs.io.out
-
   for(i <- 0 until chienRootsPerCycle) {
-    polyEval(i).io.coefVec.bits.data := io.errLocatorIf.bits.errLocator
-    polyEval(i).io.coefVec.bits.sel := errLocatorFfs
+    polyEval(i).io.coefVec.bits := io.errLocIf.bits
     polyEval(i).io.coefVec.valid := roots.valid
     polyEval(i).io.x := roots.bits(i)
   }
