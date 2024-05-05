@@ -80,14 +80,7 @@ trait GfParams {
 
   require(numOfComboLenEe0 <= tLen-1, "Ee0 Combo length more than (tLen-1)")
   val numOfQStagesEe0 = if(numOfComboLenEe0 == tLen-1) 1 else (tLen-1)/numOfComboLenEe0+1
-
-  println("numOfStagesFd0: " + numOfStagesFd0)
-  println("numOfCyclesFd0: " + numOfCyclesFd0)
-  println("cntrStopLimitFd0: " + cntrStopLimitFd0)
-  println("numOfComboLenEe0 " + numOfComboLenEe0)
-  println("numOfQStagesEe0 " + numOfQStagesEe0)
-  println("cntrEopFd0: " + cntrEopFd0)
-
+  
   //////////////////////////////
   // Bundles
   //////////////////////////////
