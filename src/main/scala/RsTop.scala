@@ -21,5 +21,5 @@ class RsTop extends Module with GfParams {
 
 // runMain Rs.GenRs
 object GenRs extends App {
-  ChiselStage.emitSystemVerilogFile(new Rs(), Array())
+  ChiselStage.emitSystemVerilogFile(new RsTop(), Array())
 }
