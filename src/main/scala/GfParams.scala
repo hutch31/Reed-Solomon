@@ -153,21 +153,7 @@ trait GfParams {
     else
       (rootsNum/rootsPerCycle).toInt + 1
   }
-
-  def ohToNum(ohPos: UInt, base: UInt) : UInt = {
-    val baseArray = Wire(Vec(chienRootsPerCycle, UInt(symbWidth.W)))
-    val baseArrayAndSel = Wire(Vec(chienRootsPerCycle, UInt(symbWidth.W)))
-    for(i <- 0 until chienRootsPerCycle) {
-      baseArray(i) := base + i.U
-      when(ohPos(i) === 1.U) {
-        baseArrayAndSel(i) := baseArray(i)
-      }.otherwise{
-        baseArrayAndSel(i) := 0.U
-      }
-    }
-    baseArrayAndSel.reduce(_ | _)
-  }
-
+  
   //////////////////////////////
   // GF functions
   //////////////////////////////

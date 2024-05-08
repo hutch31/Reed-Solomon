@@ -74,6 +74,10 @@ class RsChienBitPosToNum extends Module with GfParams {
   val stageCapt = Reg(Vec(tLen, new PosBaseVld))
 
   for(i <- 0 until tLen) {
+    val baseArray = Wire(Vec(chienRootsPerCycle, UInt(symbWidth.W)))
+    for(i <- 0 until chienRootsPerCycle) {
+      baseArray(i) := baseComb(i) + i.U
+    }
     when(captEn) {
       when(stageComb(i).io.lsbPos =/= 0) {
         stageCapt(i).valid := 1
@@ -83,7 +87,7 @@ class RsChienBitPosToNum extends Module with GfParams {
     }.otherwise{
       stageCapt(i).valid := 0
     }
-    io.posArray.pos(i) := nLen - 1 - ohToNum(stageCapt(i).pos, baseComb(i))
+    io.posArray.pos(i) := nLen - 1 - Mux1H(stageCapt(i).pos, baseArray)
   }
 
   io.posArray.sel := VecInit(stageCapt.map(_.valid)).asTypeOf(UInt(tLen.W))
@@ -114,5 +118,5 @@ class RsChienPosOh extends Module with GfParams {
   }
 
   io.lsbPosXor := io.bitPos ^ io.lsbPos
-  
+
 }
