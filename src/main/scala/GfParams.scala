@@ -36,18 +36,16 @@ trait GfParams {
   //////////////////////////////
   // Chien parameterization
   //////////////////////////////
-  
-  val chienComboLen = 2
-  
-  // num of stage to eval GF Poly in point 'x' equals to tLen
-  require(chienComboLen <= tLen-1, "")
-  val chienQLen = (tLen-1)/chienComboLen
 
   val chienRootsPerCycle = 16
+  val chienHorner = true
+  val chienHornerComboLen = 2
+  // num of stage to eval GF Poly in point 'x' equals to tLen
+  require(chienHornerComboLen <= tLen-1, "")
 
-  val ffStepPosToNum = 4
+  val chienPosToNumComboLen = 1
+  val chienPosToQStages = (tLen-1)/chienPosToNumComboLen
   val ffStepPolyEval = 1
-    //val ffNumPolyEVal = (tLen/ffStepPolyEval).toInt-1
   //////////////////////////////
   // Berlekamp Massey parameterization
   //////////////////////////////
