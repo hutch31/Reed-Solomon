@@ -7,7 +7,7 @@ class RsSyndPolyEval extends Module with GfParams {
   val io = IO(new Bundle {
     val root = Input(UInt(symbWidth.W))
     val sAxisIf = Input(Valid(new axisIf(axisWidth)))
-    val synd = Output(Valid(UInt(symbWidth.W)))
+    val syndIf = Output(Valid(UInt(symbWidth.W)))
   })
 
   val cntrWidth = log2Ceil(nLen)
@@ -52,7 +52,7 @@ class RsSyndPolyEval extends Module with GfParams {
     syndVld := false.B
   }
 
-  io.synd.bits := synd
-  io.synd.valid := syndVld
+  io.syndIf.bits := synd
+  io.syndIf.valid := syndVld
 
 }
