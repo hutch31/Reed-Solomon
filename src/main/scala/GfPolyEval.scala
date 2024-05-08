@@ -93,7 +93,6 @@ class GfPolyEvalHornerStage extends Module with GfParams {
 class GfPolyEval(vecLen: Int) extends Module with GfParams {
   val io = IO(new Bundle {
     val coefVec = Input(Valid(Vec(vecLen, UInt(symbWidth.W))))
-    //val coefFfs = if(selEn) Some(Input(UInt(vecLen.W))) else None
     val x = Input(UInt(symbWidth.W))
     val evalValue = Output(Valid(UInt(symbWidth.W)))    
   })
