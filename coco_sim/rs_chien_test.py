@@ -21,7 +21,7 @@ sys.path.append(dig_com_path + "/rs/sim")
 sys.path.append(coco_path)
 sys.path.append(rs_chisel)
 sys.path.append(rs_chisel+"/coco_sim")
-sys.path.append(rs_chisel+"/coco_sim/test")
+sys.path.append(rs_chisel+"/coco_sim/env")
 
 # Import modules
 import cocotb
