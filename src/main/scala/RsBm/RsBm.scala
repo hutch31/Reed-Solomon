@@ -7,7 +7,7 @@ import chisel3.util._
 class RsBm extends Module with GfParams {
   val io = IO(new Bundle {
     val syndIf = Input(Valid(Vec(redundancy, UInt(symbWidth.W))))
-    val errLocIf = Output(Valid(Vec(tLen+1, UInt(symbWidth.W))))
+    val errLocIf = Output(Valid(new vecFfsIf(tLen+1)))
   })
   val lenWidth = log2Ceil(redundancy)
   val rsBmStage = for(i <- 0 until numOfSymbBm) yield  Module(new RsBmStage(lenWidth))
@@ -116,8 +116,11 @@ class RsBm extends Module with GfParams {
     }
   }
 
+  val ffs = Module(new FindFirstSetNew(width=tLen+1, lsbFirst=false))
+  ffs.io.in := VecInit(errLocQ.map(x => x.orR)).asTypeOf(UInt((tLen+1).W))
   // TODO: connect proper output
-  io.errLocIf.bits := errLocQ
+  io.errLocIf.bits.vec := errLocQ
+  io.errLocIf.bits.ffs := ffs.io.out
   io.errLocIf.valid := errLocVldQ
   
 }
@@ -183,6 +186,7 @@ class RsBmStage(lenWidth: Int) extends Module with GfParams {
 
 }
 
+// runMain Rs.GenBm
 object GenBm extends App {
   //ChiselStage.emitSystemVerilogFile(new RsBmStage(4), Array())
   ChiselStage.emitSystemVerilogFile(new RsBm(), Array())
