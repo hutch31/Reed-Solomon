@@ -26,7 +26,7 @@ class RsChienBitPosToNum extends Module with GfParams {
   //////////////////////////////
   // Pipelining FFS logic
   //////////////////////////////
-
+  val stageCapt = Reg(Vec(tLen, new PosBaseVld))
   val stageComb = for(i <- 0 until tLen) yield Module(new RsChienPosOh())
   val baseComb = Wire(Vec(tLen, UInt(symbWidth.W)))
   val validComb = Wire(Vec(tLen, Bool()))
@@ -37,6 +37,7 @@ class RsChienBitPosToNum extends Module with GfParams {
   }.otherwise{
     stageComb(0).io.bitPos := 0.U
   }
+  stageComb(0).io.bypass := stageCapt(0).valid
 
   baseComb(0)  := base
   validComb(0) := io.bitPos.valid
@@ -48,7 +49,7 @@ class RsChienBitPosToNum extends Module with GfParams {
       val baseQ = Reg(UInt(symbWidth.W))
       val lastQ = Reg(Bool())
       val validQ = RegInit(Bool(), false.B)
-      bitPosQ         := stageComb(i-1).io.bitPos
+      bitPosQ         := stageComb(i-1).io.lsbPosXor
       stageComb(i).io.bitPos := bitPosQ
       baseQ           := baseComb(i-1)
       baseComb(i)     := baseQ
@@ -57,11 +58,12 @@ class RsChienBitPosToNum extends Module with GfParams {
       lastQ           := lastComb(i-1)
       lastComb(i)     := lastQ
     } else {
-      stageComb(i).io.bitPos    := stageComb(i-1).io.bitPos
+      stageComb(i).io.bitPos := stageComb(i-1).io.lsbPosXor
       baseComb(i)  := baseComb(i-1)
       validComb(i) := validComb(i-1)
       lastComb(i)  := lastComb(i-1)
     }
+    stageComb(i).io.bypass := stageCapt(i).valid
   }
 
   //////////////////////////////
@@ -70,14 +72,8 @@ class RsChienBitPosToNum extends Module with GfParams {
 
   // Capture enabled only when data is valid in the pipe
   val captEn = validComb.asTypeOf(UInt(tLen.W)).orR
-
-  val stageCapt = Reg(Vec(tLen, new PosBaseVld))
-
-  for(i <- 0 until tLen) {
-    val baseArray = Wire(Vec(chienRootsPerCycle, UInt(symbWidth.W)))
-    for(i <- 0 until chienRootsPerCycle) {
-      baseArray(i) := baseComb(i) + i.U
-    }
+  
+  for(i <- 0 until tLen) {    
     when(captEn) {
       when(stageComb(i).io.lsbPos =/= 0) {
         stageCapt(i).valid := 1
@@ -87,10 +83,17 @@ class RsChienBitPosToNum extends Module with GfParams {
     }.otherwise{
       stageCapt(i).valid := 0
     }
+    val baseArray = Wire(Vec(chienRootsPerCycle, UInt(symbWidth.W)))
+    for(k <- 0 until chienRootsPerCycle) {
+      baseArray(k) := stageCapt(i).base + k.U
+    }
     io.posArray.pos(i) := nLen - 1 - Mux1H(stageCapt(i).pos, baseArray)
   }
 
-  io.posArray.sel := VecInit(stageCapt.map(_.valid)).asTypeOf(UInt(tLen.W))
+  val ffs = Module(new FindFirstSetNew(width=tLen, lsbFirst=false))
+  ffs.io.in := VecInit(stageCapt.map(_.valid)).asTypeOf(UInt(tLen.W))
+
+  io.posArray.sel := ffs.io.out
 
   io.posArray.valid := RegNext(lastComb(tLen-1))
 
