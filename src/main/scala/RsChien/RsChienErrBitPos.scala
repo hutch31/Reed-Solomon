@@ -8,7 +8,7 @@ import chisel3.util._
 
 class RsChienErrBitPos extends Module with GfParams {
   val io = IO(new Bundle {
-    val errLocIf = Input(Valid(Vec(tLen+1, UInt(symbWidth.W))))
+    val errLocIf = Input(Valid(new vecFfsIf(tLen+1)))
     val bitPos = Output(new BitPosIf)
   })
   // Localparams
@@ -16,7 +16,7 @@ class RsChienErrBitPos extends Module with GfParams {
   val numOfCycles = math.ceil(rootsNum/chienRootsPerCycle.toDouble).toInt
   val chienNonValid = ((1 << (rootsNum % chienRootsPerCycle)) -1)
 
-  val polyEval = for(i <- 0 until chienRootsPerCycle) yield Module(new GfPolyEvalHorner(tLen+1, chienHornerComboLen))
+  val polyEval = for(i <- 0 until chienRootsPerCycle) yield Module(new GfPolyEvalHorner(tLen+1, chienHornerComboLen, chienHorner))
   //val polyEval = for(i <- 0 until chienRootsPerCycle) yield Module(new GfPolyEval(tLen+1))
   
   val roots = Wire(Valid(Vec(chienRootsPerCycle, UInt(symbWidth.W))))
@@ -48,9 +48,11 @@ class RsChienErrBitPos extends Module with GfParams {
   }
 
   for(i <- 0 until chienRootsPerCycle) {
-    polyEval(i).io.coefVec.bits := io.errLocIf.bits
+    polyEval(i).io.coefVec.bits := io.errLocIf.bits.vec
     polyEval(i).io.coefVec.valid := roots.valid
     polyEval(i).io.x := roots.bits(i)
+    if(chienHorner)
+      polyEval(i).io.coefFfs.get := io.errLocIf.bits.ffs
   }
 
   val errVal = VecInit(polyEval.map(_.io.evalValue.bits))
