@@ -34,6 +34,30 @@ class FindFirstSet(width: Int) extends Module {
   io.out := UIntToOH(prioEnc.io.out, width = width)
 }
 
+class FindFirstSetNew(width: Int, lsbFirst: Boolean=true) extends Module {
+  val io = IO(new Bundle {
+    val in = Input(UInt(width.W)) // A width-bit input vector
+    val out = Output(UInt(width.W)) // Output is a one-hot vector
+  })
+  
+  io.out := 0.U
+
+  if(lsbFirst) {
+    for(i <- (width-1 to 0 by -1)) {
+      when(io.in(i) === 1.U) {
+        io.out := (1 << i).U
+      }
+    }
+  } else {
+    for(i <- (0 until width)) {
+      when(io.in(i) === 1.U) {
+        io.out := (1 << i).U
+      }
+    }
+  }
+
+}
+
 class OneHotMux(width: Int) extends Module {
   require(width > 0, "Width must be greater than 0")
 
