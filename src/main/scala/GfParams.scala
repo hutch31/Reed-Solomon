@@ -34,6 +34,12 @@ trait GfParams {
   val msgDuration = nLen/axisWidth
 
   //////////////////////////////
+  // Berlekamp Massey parameterization
+  //////////////////////////////
+
+  val numOfSymbBm = 1
+
+  //////////////////////////////
   // Chien parameterization
   //////////////////////////////
 
@@ -46,12 +52,7 @@ trait GfParams {
   val chienPosToNumComboLen = 1
   val chienPosToQStages = (tLen-1)/chienPosToNumComboLen
   val ffStepPolyEval = 1
-  //////////////////////////////
-  // Berlekamp Massey parameterization
-  //////////////////////////////
-
-  val numOfSymbBm = 1
-
+  
   //////////////////////////////
   // Forney parameterization
   //////////////////////////////
@@ -153,7 +154,7 @@ trait GfParams {
     else
       (rootsNum/rootsPerCycle).toInt + 1
   }
-  
+
   //////////////////////////////
   // GF functions
   //////////////////////////////
