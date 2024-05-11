@@ -12,7 +12,7 @@ import chisel3.util._
 class RsChien extends Module with GfParams{
   val io = IO(new Bundle {
     val errLocIf = Input(Valid(new vecFfsIf(tLen+1)))
-    val posArray = Output(new NumPosIf)
+    val errPosIf = Output(Valid(new vecFfsIf(tLen)))
     val chienErrDetect = Output(Bool())
   })
 
@@ -21,10 +21,10 @@ class RsChien extends Module with GfParams{
 
   rsChienErrBitPos.io.errLocIf <> io.errLocIf
   rsChienBitPosToNum.io.bitPos <> rsChienErrBitPos.io.bitPos
-  io.posArray <> rsChienBitPosToNum.io.posArray
+  io.errPosIf <> rsChienBitPosToNum.io.errPosIf
 
-  when(io.posArray.valid) {
-    io.chienErrDetect := (io.errLocIf.bits.ffs(tLen,1) ^ io.posArray.sel).orR
+  when(io.errPosIf.valid) {
+    io.chienErrDetect := (io.errLocIf.bits.ffs(tLen,1) ^ io.errPosIf.bits.ffs).orR
   }.otherwise {
     io.chienErrDetect := 0.U
   }

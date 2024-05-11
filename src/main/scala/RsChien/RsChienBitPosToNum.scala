@@ -12,7 +12,7 @@ import chisel3.util._
 class RsChienBitPosToNum extends Module with GfParams {
   val io = IO(new Bundle {
     val bitPos = Input(new BitPosIf)
-    val posArray = Output(new NumPosIf)
+    val errPosIf = Output(Valid(new vecFfsIf(tLen)))
   })
 
   val base = RegInit(UInt(symbWidth.W), 0.U)
@@ -87,15 +87,15 @@ class RsChienBitPosToNum extends Module with GfParams {
     for(k <- 0 until chienRootsPerCycle) {
       baseArray(k) := stageCapt(i).base + k.U
     }
-    io.posArray.pos(i) := nLen - 1 - Mux1H(stageCapt(i).pos, baseArray)
+    io.errPosIf.bits.vec(i) := nLen - 1 - Mux1H(stageCapt(i).pos, baseArray)
   }
 
   val ffs = Module(new FindFirstSetNew(width=tLen, lsbFirst=false))
   ffs.io.in := VecInit(stageCapt.map(_.valid)).asTypeOf(UInt(tLen.W))
 
-  io.posArray.sel := ffs.io.out
+  io.errPosIf.bits.ffs := ffs.io.out
 
-  io.posArray.valid := RegNext(lastComb(tLen-1))
+  io.errPosIf.valid := RegNext(lastComb(tLen-1))
 
 }
 
