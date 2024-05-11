@@ -7,19 +7,24 @@ import chisel3.util._
 class RsTop extends Module with GfParams {
   val io = IO(new Bundle {
     val sAxisIf = Input(Valid(new axisIf(axisWidth)))
-    val errLocIf = Output(Valid(Vec(tLen+1, UInt(symbWidth.W))))
+    val errPosIf = Output(Valid(new vecFfsIf(tLen)))
+    val chienErrDetect = Output(Bool())
   })
 
   val rsSynd = Module(new RsSynd)
   val rsBm = Module(new RsBm)
+  val rsChien = Module(new RsChien)
 
   rsSynd.io.sAxisIf <> io.sAxisIf
-  rsBm.io.syndIf <> rsSynd.io.syndIf
-  io.errLocIf <> rsBm.io.errLocIf
+  rsBm.io.syndIf <> rsSynd.io.syndIf  
+  rsChien.io.errLocIf <> rsBm.io.errLocIf
+
+  io.errPosIf <> rsChien.io.errPosIf
+  io.chienErrDetect <> rsChien.io.chienErrDetect
 
 }
 
-// runMain Rs.GenRs
-object GenRs extends App {
+// runMain Rs.GenRsTop
+object GenRsTop extends App {
   ChiselStage.emitSystemVerilogFile(new RsTop(), Array())
 }
