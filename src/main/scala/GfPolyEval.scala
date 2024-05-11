@@ -3,6 +3,8 @@ package Rs
 import chisel3._
 import chisel3.util._
 
+// TODO: add GfPolyEvalBase parent class and two childs GfPolyEvalHorner/GfPolyEval.
+
 class GfPolyEvalHorner(vecLen : Int, comboLen : Int, selEn : Boolean=false) extends Module with GfParams {
 
   val io = IO(new Bundle {
@@ -18,7 +20,7 @@ class GfPolyEvalHorner(vecLen : Int, comboLen : Int, selEn : Boolean=false) exte
     coefFfs := io.coefFfs.get
   } else {
     val coefSel = VecInit(io.coefVec.bits.map(x => x.orR))
-    val ffs = Module(new FindFirstSet(vecLen))
+    val ffs = Module(new FindFirstSetNew(vecLen, false))
     ffs.io.in := coefSel.asTypeOf(UInt(vecLen.W))
     coefFfs := ffs.io.out
   }
@@ -90,9 +92,10 @@ class GfPolyEvalHornerStage extends Module with GfParams {
 
 }
 
-class GfPolyEval(vecLen: Int) extends Module with GfParams {
+class GfPolyEval(vecLen: Int, selEn: Boolean=false) extends Module with GfParams {
   val io = IO(new Bundle {
     val coefVec = Input(Valid(Vec(vecLen, UInt(symbWidth.W))))
+    val coefFfs = if(selEn) Some(Input(UInt(vecLen.W))) else None
     val x = Input(UInt(symbWidth.W))
     val evalValue = Output(Valid(UInt(symbWidth.W)))    
   })
