@@ -21,6 +21,7 @@ from rs_lib import RsPacket
 from rs_lib import RsSyndromePacket
 from rs_lib import RsErrataLocatorPacket
 from rs_lib import RsSyndXErrataPacket
+from rs_lib import RsErrValuePacket
 
 from rs import init_tables
 from rs import gf_poly_eval
@@ -74,7 +75,7 @@ class ErrataLocatorEnv():
     def build_env(self):
         self.comp = Comparator(name='comparator')
         self.err_loc_drv = AxisDriver(name='err_loc_drv', axis_if=self.s_if0)
-        self.synd_drv = AxisDriver(name='synd_drv', axis_if=self.s_if1)
+        self.synd_drv = AxisDriver(name='synd_drv', axis_if=self.s_if1, msb_first=1)
         self.m_mon = AxisMonitor(name='m_mon', axis_if=self.m_if, aport=self.comp.port_out)
 
         
@@ -100,6 +101,7 @@ class ErrataLocatorEnv():
             synd_x_errata.print_pkt()
             self.comp.port_prd.append(synd_x_errata)
             #self.errata_pkt.append(errata_loc)
+
                     
     async def run(self):
         await cocotb.start(reset_dut(self.reset,200,1))

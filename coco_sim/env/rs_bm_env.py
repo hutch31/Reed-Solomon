@@ -59,20 +59,21 @@ class RsBmEnv():
 
         self.m_data = []
         for i in range(T_LEN+1):
-            self.m_data.append(eval(f"self.dut.io_errLoc_bits_{i}"))
+            self.m_data.append(eval(f"self.dut.io_errLocIf_bits_vec_{i}"))
             
         self.m_if = AxisIf(aclk=self.clock,
                            tdata=self.m_data,
-                           tvalid=self.dut.io_errLoc_valid,
-                           tlast=self.dut.io_errLoc_valid,
+                           tvalid=self.dut.io_errLocIf_valid,
+                           tlast=self.dut.io_errLocIf_valid,
+                           tkeep=self.dut.io_errLocIf_bits_ffs,
                            unpack='chisel_vec',
                            width=T_LEN+1,
-                           tkeep_type='packed')
+                           tkeep_type='ffs')
         
         
     def build_env(self):
         self.comp = Comparator(name='comparator')
-        self.synd_drv = AxisDriver(name='s_drv1', axis_if=self.s_if, msb_first=1)
+        self.synd_drv = AxisDriver(name='s_drv1', axis_if=self.s_if, pkt0_word0=1)
         self.m_mon = AxisMonitor(name='m_mon', axis_if=self.m_if, aport=self.comp.port_out)
 
         
@@ -105,7 +106,7 @@ class RsBmEnv():
         # Set local error locator
         for i in range (len(self.synd_pkt)):
             await self.synd_drv.send_pkt(self.synd_pkt[i])
-            for i in range(CHIEN__CYCLES_NUM+5):
+            for i in range(BLOCK_CYCLES):
                 await RisingEdge(self.clock)
 
         await Timer(250, units = "ns")

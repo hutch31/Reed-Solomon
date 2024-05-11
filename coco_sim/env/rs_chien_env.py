@@ -43,30 +43,28 @@ class RsChienEnv():
         
         # Connect Error locator IF
         self.s_data = []
-        for i in range(T_LEN):
-            self.s_data.append(eval(f"self.dut.io_errLocatorIf_bits_errLocator_{i}"))
+        for i in range(T_LEN+1):
+            self.s_data.append(eval(f"self.dut.io_errLocIf_bits_vec_{i}"))
         self.s_if = AxisIf(aclk=self.clock,
                            tdata=self.s_data,
-                           tvalid=self.dut.io_errLocatorIf_valid,
-                           tkeep=self.dut.io_errLocatorIf_bits_errLocatorSel,
+                           tvalid=self.dut.io_errLocIf_valid,
+                           tkeep=self.dut.io_errLocIf_bits_ffs,
+                           tkeep_type='ffs',
                            unpack='chisel_vec',
-                           width=T_LEN,
-                           tkeep_type='chisel_vec')
+                           width=T_LEN+1)
         
         self.m_data = []
-        self.m_tkeep = []
         for i in range(T_LEN):
-            self.m_data.append(eval(f"self.dut.io_numArray_pos_{i}"))
-            self.m_tkeep.append(eval(f"self.dut.io_numArray_sel_{i}"))
+            self.m_data.append(eval(f"self.dut.io_errPosIf_bits_vec_{i}"))
             
         self.m_if = AxisIf(aclk=self.clock,
                            tdata=self.m_data,
-                           tvalid=self.dut.io_numArray_valid,
-                           tlast=self.dut.io_numArray_valid,
-                           tkeep=self.m_tkeep,
+                           tvalid=self.dut.io_errPosIf_valid,
+                           tlast=self.dut.io_errPosIf_valid,
+                           tkeep=self.dut.io_errPosIf_bits_ffs,
                            unpack='chisel_vec',
                            width=T_LEN,
-                           tkeep_type='chisel_vec')
+                           tkeep_type='ffs')
         
     def build_env(self):
         self.comp = Comparator(name='comparator')
@@ -108,7 +106,7 @@ class RsChienEnv():
         # Set local error locator
         for pkt in self.drv_pkt:
             await self.s_drv.send_pkt(pkt)
-            for i in range(CHIEN__CYCLES_NUM+5):
+            for i in range(50):
                 await RisingEdge(self.clock)
         
     def post_run(self):
