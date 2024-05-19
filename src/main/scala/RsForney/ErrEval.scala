@@ -6,14 +6,15 @@ import chisel3.util._
 class ErrEval extends Module with GfParams {
   val io = IO(new Bundle {
     val errataLocIf = Input(Valid(new vecFfsIf(tLen+1)))
-    val syndrome = Input(Vec(redundancy, UInt(symbWidth.W)))
+    val syndIf = Input(Valid(Vec(redundancy, UInt(symbWidth.W))))
     val errEvalIf = Output(Valid(new vecFfsIf(tLen+1)))
   })
 
   val syndRev = Wire(Vec(redundancy, UInt(symbWidth.W)))
-  
+
+  // TODO: check reverse Check the 
   for(i <- 0 until redundancy) {
-    syndRev(i) := io.syndrome(redundancy-1-i)
+    syndRev(i) := io.syndIf.bits(redundancy-1-i)
   }
 
   ///////////////////////////////////

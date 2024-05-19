@@ -8,7 +8,7 @@ import chisel3.util._
 class RsForney extends Module with GfParams {
   val io = IO(new Bundle {
     val errPosIf = Input(Valid(new vecFfsIf(tLen)))
-    val syndrome = Input(Vec(redundancy, UInt(symbWidth.W)))
+    val syndIf = Input(Valid(Vec(redundancy, UInt(symbWidth.W))))
     val errValIf = Output(Valid(new vecFfsIf(tLen)))
     val errPosOutIf = Output(Valid(new vecFfsIf(tLen)))
   })
@@ -21,9 +21,11 @@ class RsForney extends Module with GfParams {
 
   val ffs = Module(new FindFirstSet(tLen))
   ffs.io.in := io.errPosIf.bits.ffs
-
   val errPosCoefIf = Wire(Valid(new vecFfsIf(tLen)))
   errPosCoefIf.bits.ffs := ffs.io.out
+
+  //val errPosCoefIf = Wire(Valid(new vecFfsIf(tLen)))
+  //errPosCoefIf.bits.ffs := io.errPosIf.bits.ffs //ffs.io.out
   errPosCoefIf.valid := io.errPosIf.valid
 
   for(i <- 0 until tLen)
@@ -36,7 +38,7 @@ class RsForney extends Module with GfParams {
   val Xl = Wire(Vec(tLen, (UInt(symbWidth.W))))
   val XlInv = Wire(Vec(tLen, (UInt(symbWidth.W))))
 
-  for(i <- 0 until tLen) {
+  for(i <- 0 until tLen) {    
     val coefDiff = (symbNum-1).U-errPosCoefIf.bits.vec(i)
     Xl(i) := powerFirstRootNeg(coefDiff)
     XlInv(i) := gfInv(Xl(i))
@@ -51,7 +53,7 @@ class RsForney extends Module with GfParams {
 
   //XlInvVldIf.bits.vec := XlInv
   //XlInvVldIf.valid := io.errPosIf.valid
-
+  
   //////////////////////////////////////
   // Modules instantiation
   //////////////////////////////////////
@@ -61,12 +63,14 @@ class RsForney extends Module with GfParams {
   val errEvalXlInv = Module(new ErrEvalXlInv)
   val formalDer = Module(new FormalDerivative)
   val errVal = Module(new ErrVal)
-  // TODO: Is 4 Entries enought ? 
-  val queueErrPos = Module(new QueueFwft(new vecFfsIf(tLen), 4))
+  // TODO: Is 4 Entries enought ?
+  // TODO: add queue
+  val queueErrPos = Module(new Queue(new vecFfsIf(tLen), 4))
+  //val queueErrPos = Module(new QueueFwft(new vecFfsIf(tLen), 4))
   // ErrataLocator
   errataLoc.io.errPosCoefIf <> errPosCoefIf
   errEval.io.errataLocIf <> errataLoc.io.errataLocIf
-  errEval.io.syndrome := io.syndrome
+  errEval.io.syndIf := io.syndIf
 
   errEvalXlInv.io.errEvalIf <> errEval.io.errEvalIf
   errEvalXlInv.io.XlInvIf <> XlInvFfsIf
