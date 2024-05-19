@@ -68,11 +68,16 @@ class RsChienBitPosToNum extends Module with GfParams {
 
   //////////////////////////////
   // Capture oh pos and base signals
+  //
+  // Capture and store data till the next portion of the
+  // data available. FFS should be captured separately since
+  // stageCapt(i).valid is reseted when capture disabled.
   //////////////////////////////
 
   // Capture enabled only when data is valid in the pipe
   val captEn = validComb.asTypeOf(UInt(tLen.W)).orR
-  
+  val errPos = Wire(Vec(tLen, UInt(symbWidth.W)))
+
   for(i <- 0 until tLen) {    
     when(captEn) {
       when(stageComb(i).io.lsbPos =/= 0) {
@@ -87,15 +92,29 @@ class RsChienBitPosToNum extends Module with GfParams {
     for(k <- 0 until chienRootsPerCycle) {
       baseArray(k) := stageCapt(i).base + k.U
     }
-    io.errPosIf.bits.vec(i) := nLen - 1 - Mux1H(stageCapt(i).pos, baseArray)
+    //io.errPosIf.bits.vec(i) := nLen - 1 - Mux1H(stageCapt(i).pos, baseArray)
+    errPos(i) := nLen - 1 - Mux1H(stageCapt(i).pos, baseArray)
   }
 
-  val ffs = Module(new FindFirstSetNew(width=tLen, lsbFirst=false))
-  ffs.io.in := VecInit(stageCapt.map(_.valid)).asTypeOf(UInt(tLen.W))
+  val captFfsQ = RegNext(next=lastComb(tLen-1), false.B)
 
-  io.errPosIf.bits.ffs := ffs.io.out
+  //val ffs = Module(new FindFirstSetNew(width=tLen, lsbFirst=false))
+  //val stageValid = Wire(UInt(tLen.W))
+  //val stageValid = VecInit(stageCapt.map(_.valid)).asTypeOf(UInt(tLen.W))
+  val stageValid = VecInit(stageCapt.map(_.valid))
 
-  io.errPosIf.valid := RegNext(lastComb(tLen-1))
+  val ffsQ = RegInit(UInt(tLen.W), 0.U)
+  val errPosQ = Reg(Vec(tLen, UInt(symbWidth.W)))
+  
+  when(captFfsQ) {
+    //ffsQ := ffs.io.out
+    ffsQ := stageValid.asTypeOf(UInt(tLen.W))
+    errPosQ := (errPos zip stageValid).map{case(a,b) => a & Fill(symbWidth,b)}
+  }
+
+  io.errPosIf.bits.vec := errPosQ
+  io.errPosIf.bits.ffs := ffsQ
+  io.errPosIf.valid := RegNext(next=captFfsQ, false.B)
 
 }
 
