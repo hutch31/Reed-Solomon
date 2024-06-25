@@ -138,8 +138,6 @@ async def random_error(dut):
         for i in range (len(m_if_containers)):
             #m_if_containers[i].if_packets.append(pkt_builder.get_pkt(m_if_containers[i].if_name))
             mon_pkt = pkt_builder.get_pkt(m_if_containers[i].if_name)
-            print("PRINT_MON_PKT")
-            mon_pkt.print_pkt()
             m_if_containers[i].if_packets.append(mon_pkt)
             
             

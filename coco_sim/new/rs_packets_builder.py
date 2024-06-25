@@ -1,12 +1,10 @@
-from rs import rs_encode_msg
-from rs import rs_calc_syndromes
-from rs import rs_find_error_locator
-from rs import rs_find_errors
-from rs import rs_correct_errata
-from rs import rs_correct_msg_nofsynd
-from rs import rs_errata_locator
-from rs import rs_synd_x_errata
-from rs import init_tables
+from reedsolo import rs_encode_msg
+from reedsolo import rs_calc_syndromes
+from reedsolo import rs_find_error_locator
+from reedsolo import rs_find_errors
+from reedsolo import rs_correct_errata
+from reedsolo import rs_correct_msg_nofsynd
+from reedsolo import init_tables
 
 from packet import Packet
 import copy
@@ -42,7 +40,7 @@ class RsPacketsBuilder():
         self.ref_msg.print_pkt()
         
     def encode_msg(self):
-        enc_msg = rs_encode_msg(msg_in=self.ref_msg.data, fcr=self.FCR,nsym=self.REDUNDANCY)
+        enc_msg = list(rs_encode_msg(msg_in=self.ref_msg.data, fcr=self.FCR,nsym=self.REDUNDANCY))
         self.enc_msg = Packet(name=f'enc_msg{self._pkt_cntr}')
         self.enc_msg.write_data(enc_msg, delay=0)
         
@@ -52,6 +50,7 @@ class RsPacketsBuilder():
         self.cor_msg.corrupt_pkt(positions=positions, errors=errors)
         self.cor_msg.compare(self.enc_msg)
         self.cor_msg.print_pkt()
+        print(self.cor_msg.data)
 
     ''' Generate RS packets '''
     
@@ -83,7 +82,7 @@ class RsPacketsBuilder():
         syndrome = rs_calc_syndromes(self.cor_msg.data, self.REDUNDANCY, self.FCR)
         error_locator = rs_find_error_locator(syndrome, self.REDUNDANCY)
         error_locator = error_locator[::-1]
-        error_position = rs_find_errors(err_loc=error_locator,nmess=self.K_LEN, verbose=0)
+        error_position = rs_find_errors(err_loc=error_locator,nmess=len(self.enc_msg.data))
         err_pos_pkt = Packet(name=f'err_pos_pkt{self._pkt_cntr}')
         err_pos_pkt.write_data(ref_data=error_position)
         return err_pos_pkt
@@ -92,8 +91,8 @@ class RsPacketsBuilder():
         syndrome = rs_calc_syndromes(self.cor_msg.data, self.REDUNDANCY, self.FCR)
         error_locator = rs_find_error_locator(syndrome, self.REDUNDANCY)
         error_locator = error_locator[::-1]
-        error_position = rs_find_errors(err_loc=error_locator,nmess=len(self.enc_msg.data), verbose=0)
-        _, magnitude = rs_correct_errata(msg_in=self.cor_msg.data, synd=syndrome, err_pos=error_position, fcr=self.FCR, verbose=0)
+        error_position = rs_find_errors(err_loc=error_locator,nmess=len(self.enc_msg.data))
+        _, magnitude = rs_correct_errata(msg_in=self.cor_msg.data, synd=syndrome, err_pos=error_position, fcr=self.FCR)
         err_val_pkt = Packet(name=f'err_val_pkt{self._pkt_cntr}')
         err_val_pkt.write_data(ref_data=magnitude)
         return err_val_pkt
