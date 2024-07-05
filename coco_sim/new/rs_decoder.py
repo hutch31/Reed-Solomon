@@ -9,6 +9,7 @@ import random
 from rs_packets_builder import RsPacketsBuilder
 from rs_interface import RsIfBuilder
 from rs_env import RsEnv
+from errors_builder import ErrorsBuilder
 
 class IfContainer():
 
@@ -66,20 +67,6 @@ if __name__ == "__main__":
     args = parse_command_line()
     if args.seed:
         os.environ["RANDOM_SEED"] = args.seed
-    
-    #positions = [0,1,2,3]
-    #pkt_builder.corrupt_msg(positions)
-    #for s_if in env_cfg['s_if']:
-    #    print(f"s_if = {s_if}")
-    #    env_cfg['s_if'][s_if] = pkt_builder.get_pkt(s_if)
-    #for m_if in env_cfg['m_if']:
-    #    print(f"m_if = {m_if}")
-    #    env_cfg['m_if'][m_if] = pkt_builder.get_pkt(m_if)
-    
-    #for s_if in env_cfg['s_if']:
-    #    gen_drv_pkt = pkt_builder.get_pkt(s_if)
-    #drv_pkt = gen_pkt()
-    #drv_pkt.print_pkt()
     build_and_run()
 
 '''
@@ -106,14 +93,15 @@ def get_if(top_level):
         raise ValueError(f"Not expected value for top_level = {top_level}")
     return s_if, m_if
 
-@cocotb.test()
-async def random_error(dut):
-    pkt_num = 10
+async def decoder_test(dut, error_type, pkt_num = 10):
+    
     s_if_containers = []
     m_if_containers = []
     
     if_builder = RsIfBuilder(dut)
-    pkt_builder = RsPacketsBuilder(K_LEN, REDUNDANCY, FCR, 'increment')
+
+    err_builder = ErrorsBuilder(N_LEN, T_LEN)
+    
     # Get interfaces
     s_if_list, m_if_list = get_if(dut._name)
     for if_name in s_if_list:
@@ -127,18 +115,20 @@ async def random_error(dut):
         if_container.if_ptr = if_builder.get_if(if_name)
         m_if_containers.append(if_container)        
     # Generate packets
+    pkt_builder = RsPacketsBuilder(K_LEN, REDUNDANCY, FCR, 'increment')
     for i in range(pkt_num):
-        err_num = 3
-        err_pos = random.sample(range(0, N_LEN-1), err_num)
+        err_num = T_LEN
+        err_pos = err_builder.generate_error(error_type)
         pkt_builder.generate_msg()
         pkt_builder.encode_msg()
         pkt_builder.corrupt_msg(err_pos)
         for i in range(len(s_if_containers)):
             s_if_containers[i].if_packets.append(pkt_builder.get_pkt(s_if_containers[i].if_name))
         for i in range (len(m_if_containers)):
-            #m_if_containers[i].if_packets.append(pkt_builder.get_pkt(m_if_containers[i].if_name))
             mon_pkt = pkt_builder.get_pkt(m_if_containers[i].if_name)
-            m_if_containers[i].if_packets.append(mon_pkt)
+            if mon_pkt is not None:
+                mon_pkt.print_pkt()
+                m_if_containers[i].if_packets.append(mon_pkt)
             
             
     # Build environment
@@ -146,4 +136,16 @@ async def random_error(dut):
     env.build_env(s_if_containers, m_if_containers)
     await env.run()
     env.post_run()
+    
+@cocotb.test()
+async def random_error_test(dut):
+    await decoder_test(dut, 'random_error')
+
+@cocotb.test()
+async def cover_all_errors_test(dut):
+    await decoder_test(dut, 'cover_all_errors', T_LEN)
+
+@cocotb.test()
+async def uncorrupted_msg_test(dut):
+    await decoder_test(dut, 'uncorrupted_msg', T_LEN)
     

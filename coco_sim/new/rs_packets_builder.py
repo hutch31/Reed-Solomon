@@ -80,19 +80,26 @@ class RsPacketsBuilder():
 
     def get_err_pos(self):
         syndrome = rs_calc_syndromes(self.cor_msg.data, self.REDUNDANCY, self.FCR)
-        error_locator = rs_find_error_locator(syndrome, self.REDUNDANCY)
-        error_locator = error_locator[::-1]
-        error_position = rs_find_errors(err_loc=error_locator,nmess=len(self.enc_msg.data))
-        err_pos_pkt = Packet(name=f'err_pos_pkt{self._pkt_cntr}')
-        err_pos_pkt.write_data(ref_data=error_position)
-        return err_pos_pkt
+        print(f"syndrome: {syndrome}")
+        if all(x == 0 for x in syndrome):
+            return None
+        else:
+            error_locator = rs_find_error_locator(syndrome, self.REDUNDANCY)
+            error_locator = error_locator[::-1]
+            error_position = rs_find_errors(err_loc=error_locator,nmess=len(self.enc_msg.data))
+            err_pos_pkt = Packet(name=f'err_pos_pkt{self._pkt_cntr}')
+            err_pos_pkt.write_data(ref_data=error_position)
+            return err_pos_pkt
 
     def get_err_val(self):
         syndrome = rs_calc_syndromes(self.cor_msg.data, self.REDUNDANCY, self.FCR)
-        error_locator = rs_find_error_locator(syndrome, self.REDUNDANCY)
-        error_locator = error_locator[::-1]
-        error_position = rs_find_errors(err_loc=error_locator,nmess=len(self.enc_msg.data))
-        _, magnitude = rs_correct_errata(msg_in=self.cor_msg.data, synd=syndrome, err_pos=error_position, fcr=self.FCR)
-        err_val_pkt = Packet(name=f'err_val_pkt{self._pkt_cntr}')
-        err_val_pkt.write_data(ref_data=magnitude)
-        return err_val_pkt
+        if all(x == 0 for x in syndrome):
+            return None
+        else:
+            error_locator = rs_find_error_locator(syndrome, self.REDUNDANCY)
+            error_locator = error_locator[::-1]
+            error_position = rs_find_errors(err_loc=error_locator,nmess=len(self.enc_msg.data))
+            _, magnitude = rs_correct_errata(msg_in=self.cor_msg.data, synd=syndrome, err_pos=error_position, fcr=self.FCR)
+            err_val_pkt = Packet(name=f'err_val_pkt{self._pkt_cntr}')
+            err_val_pkt.write_data(ref_data=magnitude)
+            return err_val_pkt
