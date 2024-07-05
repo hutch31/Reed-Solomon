@@ -82,8 +82,8 @@ class RsIfBuilder():
                          tlast=self._dut.io_errPosIf_valid,
                          tkeep=self._dut.io_errPosIf_bits_ffs,
                          unpack='chisel_vec',
-                         width=T_LEN,
-                         tkeep_type='ffs')
+                         width=T_LEN)
+        
         return if_inst
 
     def gen_errValIf(self):
@@ -112,7 +112,7 @@ class RsIfBuilder():
                          tlast=self._dut.io_errValIf_valid,
                          tkeep=self._dut.io_errPosIf_bits_ffs,
                          unpack='chisel_vec',
-                         width=T_LEN,
-                         tkeep_type='ffs')
+                         width=T_LEN)
+        
         return if_inst
         
