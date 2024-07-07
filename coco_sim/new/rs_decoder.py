@@ -88,12 +88,15 @@ def get_if(top_level):
         m_if = ['errValIf'] 
     elif top_level == 'RsDecoder':
         s_if = ['sAxisIf'] 
-        m_if = ['errValIf', 'errPosOutIf'] 
+        m_if = ['errValIf', 'errPosOutIf']
+    elif top_level == 'RsBlockRecovery':
+        s_if = ['sAxisIf']
+        m_if = ['mAxisIf']         
     else:
         raise ValueError(f"Not expected value for top_level = {top_level}")
     return s_if, m_if
 
-async def decoder_test(dut, error_type, pkt_num = 10):
+async def decoder_test(dut, error_type, pkt_num = 1):
     
     s_if_containers = []
     m_if_containers = []

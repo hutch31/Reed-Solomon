@@ -7,6 +7,7 @@ class RsIfBuilder():
         self._builder = {}
         self._dut = dut
         self.register_if('sAxisIf', self.gen_sAxisIf)
+        self.register_if('mAxisIf', self.gen_mAxisIf)
         self.register_if('syndIf', self.gen_syndIf)
         self.register_if('errLocIf', self.gen_errLocIf)
         self.register_if('errPosIf', self.gen_errPosIf)
@@ -42,6 +43,21 @@ class RsIfBuilder():
 
         return if_inst
 
+    def gen_mAxisIf(self):
+        tdata = []        
+        for i in range(BUS_WIDTH):
+            tdata.append(eval(f"self._dut.io_mAxisIf_bits_tdata_{i}"))
+        if_inst = AxisIf(name='mAxisIf',
+                         aclk=self._dut.clock,
+                         tdata=tdata,
+                         tvalid=self._dut.io_mAxisIf_valid,
+                         tkeep=self._dut.io_mAxisIf_bits_tkeep,
+                         tlast=self._dut.io_mAxisIf_bits_tlast,
+                         unpack='chisel_vec',
+                         width=BUS_WIDTH)
+
+        return if_inst
+    
     def gen_syndIf(self):
         tdata = []
         for i in range(REDUNDANCY):

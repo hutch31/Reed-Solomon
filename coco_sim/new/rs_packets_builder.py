@@ -29,6 +29,7 @@ class RsPacketsBuilder():
         self._builder['errPosIf'] = self.get_err_pos
         self._builder['errValIf'] = self.get_err_val
         self._builder['errPosOutIf'] = self.get_err_pos
+        self._builder['mAxisIf'] = self.get_enc_msg
         
     def generate_msg(self):
         if self._pkt_cntr is None:
@@ -62,7 +63,10 @@ class RsPacketsBuilder():
         
     def get_cor_msg(self):
         return self.cor_msg
-    
+
+    def get_enc_msg(self):
+        return self.enc_msg
+        
     def get_syndrome(self):
         syndrome = rs_calc_syndromes(self.cor_msg.data, self.REDUNDANCY, self.FCR)
         syndrome.pop(0)
