@@ -12,10 +12,11 @@ class ErrEval extends Module with GfParams {
 
   val syndRev = Wire(Vec(redundancy, UInt(symbWidth.W)))
 
+  syndRev := io.syndIf.bits
   // TODO: check reverse Check the 
-  for(i <- 0 until redundancy) {
-    syndRev(i) := io.syndIf.bits(redundancy-1-i)
-  }
+  //for(i <- 0 until redundancy) {
+  //  syndRev(i) := io.syndIf.bits(redundancy-1-i)
+  //}
 
   ///////////////////////////////////
   // Shift errataLoc

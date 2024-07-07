@@ -4,7 +4,7 @@ import chisel3._
 import chisel3.util._
 
 class ShiftBundleMod[T <: Data](shiftUnit: T, width: Int, shiftVal: Int) extends Module{
-  require(shiftVal <= width, "[ERROR] ShiftVec. Wrong shiftVal compared to the width.")
+  require(shiftVal <= width, "[ERROR] ShiftBundle. Wrong shiftVal compared to the width.")
   val io = IO(new Bundle {
     val vecIn = Input(Valid(Vec(width, shiftUnit)))
     val vecOut = Output(Valid(Vec(shiftVal, shiftUnit)))

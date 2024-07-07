@@ -24,8 +24,6 @@ class RsForney extends Module with GfParams {
   val errPosCoefIf = Wire(Valid(new vecFfsIf(tLen)))
   errPosCoefIf.bits.ffs := ffs.io.out
 
-  //val errPosCoefIf = Wire(Valid(new vecFfsIf(tLen)))
-  //errPosCoefIf.bits.ffs := io.errPosIf.bits.ffs //ffs.io.out
   errPosCoefIf.valid := io.errPosIf.valid
 
   for(i <- 0 until tLen)
@@ -51,9 +49,6 @@ class RsForney extends Module with GfParams {
   XlInvFfsIf.bits.ffs := ffs.io.out
   XlInvFfsIf.valid := io.errPosIf.valid
 
-  //XlInvVldIf.bits.vec := XlInv
-  //XlInvVldIf.valid := io.errPosIf.valid
-  
   //////////////////////////////////////
   // Modules instantiation
   //////////////////////////////////////
@@ -66,7 +61,6 @@ class RsForney extends Module with GfParams {
   // TODO: Is 4 Entries enought ?
   // TODO: add queue
   val queueErrPos = Module(new Queue(new vecFfsIf(tLen), 4))
-  //val queueErrPos = Module(new QueueFwft(new vecFfsIf(tLen), 4))
   // ErrataLocator
   errataLoc.io.errPosCoefIf <> errPosCoefIf
   errEval.io.errataLocIf <> errataLoc.io.errataLocIf
