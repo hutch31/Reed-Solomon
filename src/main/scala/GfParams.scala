@@ -44,7 +44,7 @@ trait GfParams {
   //////////////////////////////
 
   val chienRootsPerCycle = 16
-  val chienHorner = true
+  val chienHorner = false
   val chienHornerComboLen = 2
   // num of stage to eval GF Poly in point 'x' equals to tLen
   require(chienHornerComboLen <= tLen-1, "")
