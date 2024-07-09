@@ -27,7 +27,7 @@ class RsDecoder extends Module with GfParams {
   rsForney.io.syndIf.valid := rsSynd.io.syndIf.valid
 
   io.chienErrDetect <> rsChien.io.chienErrDetect
-  io.errPosIf <> rsForney.io.errPosOutIf
+  io.errPosIf <> rsChien.io.errPosIf
   io.errValIf <> rsForney.io.errValIf
 
   // if the syndrome is not zero then block corrupted
