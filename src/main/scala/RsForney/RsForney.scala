@@ -10,7 +10,6 @@ class RsForney extends Module with GfParams {
     val errPosIf = Input(Valid(new vecFfsIf(tLen)))
     val syndIf = Input(Valid(Vec(redundancy, UInt(symbWidth.W))))
     val errValIf = Output(Valid(new vecFfsIf(tLen)))
-    val errPosOutIf = Output(Valid(new vecFfsIf(tLen)))
   })
 
   //////////////////////////////////////
@@ -60,7 +59,7 @@ class RsForney extends Module with GfParams {
   val errVal = Module(new ErrVal)
   // TODO: Is 4 Entries enought ?
   // TODO: add queue
-  val queueErrPos = Module(new Queue(new vecFfsIf(tLen), 4))
+  //val queueErrPos = Module(new Queue(new vecFfsIf(tLen), 4))
   // ErrataLocator
   errataLoc.io.errPosCoefIf <> errPosCoefIf
   errEval.io.errataLocIf <> errataLoc.io.errataLocIf
@@ -77,15 +76,6 @@ class RsForney extends Module with GfParams {
   errVal.io.Xl := Xl
 
   io.errValIf <> errVal.io.errValIf
-
-  queueErrPos.io.enq.valid := io.errPosIf.valid
-  queueErrPos.io.enq.bits.vec := io.errPosIf.bits.vec
-  queueErrPos.io.enq.bits.ffs := io.errPosIf.bits.ffs
-
-  queueErrPos.io.deq.ready := io.errValIf.valid
-  io.errPosOutIf.bits.vec := queueErrPos.io.deq.bits.vec
-  io.errPosOutIf.bits.ffs := queueErrPos.io.deq.bits.ffs
-  io.errPosOutIf.valid := queueErrPos.io.deq.valid
 
 }
 
