@@ -10,34 +10,53 @@ class RsBlockRecovery extends Module with GfParams {
     val mAxisIf = Output(Valid(new axisIf(axisWidth)))
   })
 
+  val msgNum = 3
+
   // Instance RsDecoder
   val rsDecoder = Module(new RsDecoder)
   rsDecoder.io.sAxisIf <> io.sAxisIf
+  val goodMsg = ~rsDecoder.io.msgCorrupted & rsDecoder.io.syndValid
+  val startMsg = Wire(Bool())
 
-  // Queue is used to store incomming messages
+  // store error positions and values in the queues.
+  // When the message is not corrupted make queueErrPos.io.enq.bits.ffs = 0
+  val queueErrPos = Module(new Queue(new vecFfsIf(tLen), msgNum))
+  queueErrPos.io.enq.valid := rsDecoder.io.errPosIf.valid
+  queueErrPos.io.enq.bits.vec := rsDecoder.io.errPosIf.bits.vec
+  queueErrPos.io.enq.bits.ffs := rsDecoder.io.errPosIf.bits.ffs
+  queueErrPos.io.deq.ready := startMsg
 
+  val queueErrVal = Module(new Queue(Vec(tLen, UInt(symbWidth.W)), msgNum))
+  queueErrVal.io.enq.valid := rsDecoder.io.errValIf.valid
+  queueErrVal.io.enq.bits := rsDecoder.io.errValIf.bits.vec
+  queueErrVal.io.deq.ready := startMsg
+
+  // sQueue is used to store incomming messages
   class sQueueBundle(width: Int) extends Bundle {
     val tdata = Vec(width, UInt(symbWidth.W))
     val tlast = Bool()
   }
-  val sQueue = Module(new Queue(new sQueueBundle(axisWidth), 3*msgDuration))
+  val sQueue = Module(new Queue(new sQueueBundle(axisWidth), msgNum*msgDuration))
 
   sQueue.io.enq.valid := io.sAxisIf.valid
   sQueue.io.enq.bits.tdata := io.sAxisIf.bits.tdata
   sQueue.io.enq.bits.tlast := io.sAxisIf.bits.tlast
 
-  val cntr = RegInit(UInt((log2Ceil(axisWidth * msgDuration)+1).W), 0.U)
-  //val cntrNxt = Wire(UInt(log2Ceil(axisWidth * msgDuration)+1).W)
+  
+  val correctMsg = startMsg & queueErrPos.io.deq.bits.ffs.orR
 
+  // dscQueue is used to store message description. Is it corrupted ot not 
+
+  val cntr = RegInit(UInt((log2Ceil(axisWidth * msgDuration)+1).W), 0.U)
   val mReady = RegInit(Bool(),false.B)
   sQueue.io.deq.ready := mReady
 
-  // Counter controlls READ operation
-  when(rsDecoder.io.errValIf.valid) {
-    cntr := cntr + axisWidth.U    
+  // Counter controlls READ operation from sQueue
+  when(startMsg) {
+    cntr := cntr + axisWidth.U
     mReady := true.B
-  }.elsewhen(cntr.orR){
-    when(cntr === (axisWidth * (msgDuration+1)).U) {
+  }.elsewhen(mReady){
+    when(sQueue.io.deq.bits.tlast) {
       cntr := 0.U
       mReady := false.B
     }.otherwise{
@@ -45,21 +64,30 @@ class RsBlockRecovery extends Module with GfParams {
     }
   }
 
+  // Read out the message when queueErrVal is not empty
+  // and there is no reading operation
+  when(~mReady & queueErrVal.io.deq.valid) {
+    startMsg := true.B
+  }.otherwise{
+    startMsg := false.B
+  }
+
   // Shift position value is less than current cntr value
   val shiftEnableVec = Wire(Vec(axisWidth, UInt(1.W)))
-  val shiftVal = shiftEnableVec.reduce(_+_)
+  val shiftVal = shiftEnableVec.reduce(_+&_)
+  dontTouch(shiftVal)
 
-  val errPosVecRev = VecInit(rsDecoder.io.errPosIf.bits.vec.reverse)
-  val errValVecRev = VecInit(rsDecoder.io.errValIf.bits.vec.reverse)
+  val errPosVecRev = VecInit(queueErrPos.io.deq.bits.vec.reverse)
+  val errValVecRev = VecInit(queueErrVal.io.deq.bits.reverse)
 
   val errPosAxis = Wire(Vec(axisWidth, UInt(log2Ceil(axisWidth).W)))
   val errPosVec = Reg(Vec(tLen, UInt(symbWidth.W)))
   val errValVec = Reg(Vec(tLen, UInt(symbWidth.W)))
   val errPosSel = Reg(UInt(tLen.W))
 
-  val ffsCountOnes = symbWidth.U - PopCount(rsDecoder.io.errPosIf.bits.ffs)
+  val ffsCountOnes = symbWidth.U - PopCount(queueErrPos.io.deq.bits.ffs)
   
-  when(rsDecoder.io.errPosIf.valid) {
+  when(correctMsg) {
     errPosVec := (errPosVecRev.asUInt >> (symbWidth.U * ffsCountOnes)).asTypeOf(Vec(tLen, UInt(symbWidth.W)))
     errValVec := (errValVecRev.asUInt >> (symbWidth.U * ffsCountOnes)).asTypeOf(Vec(tLen, UInt(symbWidth.W)))
     errPosSel := Reverse(rsDecoder.io.errPosIf.bits.ffs) >> ffsCountOnes    
@@ -91,6 +119,7 @@ class RsBlockRecovery extends Module with GfParams {
   }.otherwise{
     mTkeep := Fill(axisWidth, 1.U)
   }
+
   for(i <- 0 until axisWidth) {
     when(shiftEnableVec(i) === 1.U){
       mTdata(errPosAxis(i)) := sQueue.io.deq.bits.tdata(errPosAxis(i)) ^ errValVec(i)
