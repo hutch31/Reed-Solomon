@@ -16,8 +16,9 @@ class RsChienErrBitPos extends Module with GfParams {
   val numOfCycles = math.ceil(rootsNum/chienRootsPerCycle.toDouble).toInt
   val chienNonValid = ((1 << (rootsNum % chienRootsPerCycle)) -1)
 
-  val polyEval = for(i <- 0 until chienRootsPerCycle) yield Module(new GfPolyEvalHorner(tLen+1, chienHornerComboLen, chienHorner))
-  //val polyEval = for(i <- 0 until chienRootsPerCycle) yield Module(new GfPolyEval(tLen+1))
+  // TODO: Create the PolyEval depends on the input param
+  //val polyEval = for(i <- 0 until chienRootsPerCycle) yield Module(new GfPolyEvalHorner(tLen+1, chienHornerComboLen, chienHorner))
+  val polyEval = for(i <- 0 until chienRootsPerCycle) yield Module(new GfPolyEval(tLen+1))
   
   val roots = Wire(Valid(Vec(chienRootsPerCycle, UInt(symbWidth.W))))
   
