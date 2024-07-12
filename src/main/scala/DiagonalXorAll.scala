@@ -28,38 +28,20 @@ class DiagonalXor(row: Int, col: Int, diagIndx: Int, elementWidth: Int) extends 
 
   val colIntrm = col.min(row)
 
-  def getDiagIndx(row: Int, col: Int, diagIndx: Int) : ArrayBuffer[(Int, Int)] = {
-    val indxArray: ArrayBuffer[(Int, Int)] = ArrayBuffer.empty
-    for(rowIndx <- 0 until row) {
-      for(colIndx <- 0 until col) {  // Corrected to iterate up to 'col' instead of 'row'
-        if(rowIndx + colIndx == diagIndx) {
-          indxArray += ((rowIndx, colIndx))
-        }
+  var xorEval = 0.U
+
+  for(rowIndx <- 0 until row) {
+    for(colIndx <- 0 until col) {  // Corrected to iterate up to 'col' instead of 'row'
+      if(rowIndx + colIndx == diagIndx) {
+        xorEval = xorEval ^ io.recMatrix(rowIndx)(colIndx)
       }
     }
-    indxArray  // Return the ArrayBuffer containing the diagonal indices
   }
-
-
-  val intrmMatrix = Wire(Vec(colIntrm , UInt(elementWidth.W)))  
-  val diagIndxArray = getDiagIndx(col,row,diagIndx)
-
-  for(i <- 0 until colIntrm) {
-    if(i < diagIndxArray.length) {
-      val (rowIndex, colIndex) =  diagIndxArray(i)
-      intrmMatrix(i) := io.recMatrix(colIndex)(rowIndex)
-    } else {
-      intrmMatrix(i) := 0
-    }
-  }
-
-  io.xor := intrmMatrix.reduce(_ ^ _)
+  
+  io.xor := xorEval
 }
 
 // runMain Rs.Matrix
 object Matrix extends App {
-  //ChiselStage.emitSystemVerilogFile(new OneHotMux(4), Array())
   ChiselStage.emitSystemVerilogFile(new DiagonalXorAll(8,16,8), Array())
-  //ChiselStage.emitSystemVerilogFile(new FindFirstSet(8), Array())
-  //ChiselStage.emitSystemVerilogFile(new ffs(8), Array())
 }
