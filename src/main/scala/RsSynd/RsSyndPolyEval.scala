@@ -3,36 +3,36 @@ package Rs
 import chisel3._
 import chisel3.util._
 
-class RsSyndPolyEval extends Module with GfParams {
+class RsSyndPolyEval(c: Config) extends Module{
   val io = IO(new Bundle {
-    val root = Input(UInt(symbWidth.W))
-    val sAxisIf = Input(Valid(new axisIf(axisWidth)))
-    val syndIf = Output(Valid(UInt(symbWidth.W)))
+    val root = Input(UInt(c.SYMB_WIDTH.W))
+    val sAxisIf = Input(Valid(new axisIfNew(c.BUS_WIDTH, c.SYMB_WIDTH)))
+    val syndIf = Output(Valid(UInt(c.SYMB_WIDTH.W)))
   })
 
-  val cntrWidth = log2Ceil(nLen)
-  val stageOut = Wire(Vec(axisWidth, UInt(symbWidth.W)))
-  val termsSumVec = Wire(Vec(axisWidth, UInt(symbWidth.W)))
-  val termSum = Wire(UInt(symbWidth.W))
+  val cntrWidth = log2Ceil(c.N_LEN)
+  val stageOut = Wire(Vec(c.BUS_WIDTH, UInt(c.SYMB_WIDTH.W)))
+  val termsSumVec = Wire(Vec(c.BUS_WIDTH, UInt(c.SYMB_WIDTH.W)))
+  val termSum = Wire(UInt(c.SYMB_WIDTH.W))
 
-  for(i <- 0 until axisWidth) {
+  for(i <- 0 until c.BUS_WIDTH) {
     //power of X generation
-    val powerDwnCntr = RegInit(UInt(cntrWidth.W), (nLen-i-1).U)
+    val powerDwnCntr = RegInit(UInt(cntrWidth.W), (c.N_LEN-i-1).U)
     when(io.sAxisIf.valid) {
       when(io.sAxisIf.bits.tlast) {
-        powerDwnCntr := (nLen-i-1).U
+        powerDwnCntr := (c.N_LEN-i-1).U
       }.otherwise{
-        powerDwnCntr := powerDwnCntr - axisWidth.U
+        powerDwnCntr := powerDwnCntr - c.BUS_WIDTH.U
       }
     }
-    val xPower = gfPow(io.root, powerDwnCntr)
-    stageOut(i) := gfMult(io.sAxisIf.bits.tdata(i), xPower)
+    val xPower = c.gfPow(io.root, powerDwnCntr)
+    stageOut(i) := c.gfMult(io.sAxisIf.bits.tdata(i), xPower)
   }
 
-  termsSumVec := (stageOut zip io.sAxisIf.bits.tkeep.asTypeOf(Vec(axisWidth, Bool()))).map{case(a,b) => a & Fill(symbWidth,b) }
+  termsSumVec := (stageOut zip io.sAxisIf.bits.tkeep.asTypeOf(Vec(c.BUS_WIDTH, Bool()))).map{case(a,b) => a & Fill(c.SYMB_WIDTH,b) }
   termSum := termsSumVec.reduce(_^_)
 
-  val accumQ = RegInit(UInt(symbWidth.W), 0.U)
+  val accumQ = RegInit(UInt(c.SYMB_WIDTH.W), 0.U)
 
   when(io.sAxisIf.valid) {
     when(io.sAxisIf.bits.tlast){
@@ -42,7 +42,7 @@ class RsSyndPolyEval extends Module with GfParams {
     }    
   }
 
-  val synd = Reg(UInt(symbWidth.W))
+  val synd = Reg(UInt(c.SYMB_WIDTH.W))
   val syndVld = RegInit(Bool(), false.B)
 
   when(io.sAxisIf.valid && io.sAxisIf.bits.tlast) {
