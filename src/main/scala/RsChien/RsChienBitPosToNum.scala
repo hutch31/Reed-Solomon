@@ -9,16 +9,16 @@ import chisel3.util._
 // RsChienBitPosToNum 
 /////////////////////////////////////////
 
-class RsChienBitPosToNum extends Module with GfParams {
+class RsChienBitPosToNum(c: Config) extends Module{
   val io = IO(new Bundle {
-    val bitPos = Input(new BitPosIf)
-    val errPosIf = Output(Valid(new vecFfsIf(tLen)))
+    val bitPos = Input(new BitPosIf(c.chienRootsPerCycle))
+    val errPosIf = Output(Valid(new vecFfsIf(c.T_LEN, c.SYMB_WIDTH)))
   })
 
-  val base = RegInit(UInt(symbWidth.W), 0.U)
+  val base = RegInit(UInt(c.SYMB_WIDTH.W), 0.U)
 
   when(io.bitPos.valid){
-    base := base + chienRootsPerCycle
+    base := base + c.chienRootsPerCycle
   }.otherwise{
     base := 0
   }
@@ -26,11 +26,17 @@ class RsChienBitPosToNum extends Module with GfParams {
   //////////////////////////////
   // Pipelining FFS logic
   //////////////////////////////
-  val stageCapt = Reg(Vec(tLen, new PosBaseVld))
-  val stageComb = for(i <- 0 until tLen) yield Module(new RsChienPosOh())
-  val baseComb = Wire(Vec(tLen, UInt(symbWidth.W)))
-  val validComb = Wire(Vec(tLen, Bool()))
-  val lastComb = Wire(Vec(tLen, Bool()))
+  class PosBaseVld() extends Bundle {
+    val pos = UInt(c.chienRootsPerCycle.W)
+    val base = UInt(c.SYMB_WIDTH.W)
+    val valid = Bool()
+  }
+
+  val stageCapt = Reg(Vec(c.T_LEN, new PosBaseVld))
+  val stageComb = for(i <- 0 until c.T_LEN) yield Module(new RsChienPosOh(c))
+  val baseComb = Wire(Vec(c.T_LEN, UInt(c.SYMB_WIDTH.W)))
+  val validComb = Wire(Vec(c.T_LEN, Bool()))
+  val lastComb = Wire(Vec(c.T_LEN, Bool()))
 
   when(io.bitPos.valid === 1) {
     stageComb(0).io.bitPos := io.bitPos.pos
@@ -43,10 +49,10 @@ class RsChienBitPosToNum extends Module with GfParams {
   validComb(0) := io.bitPos.valid
   lastComb(0)  := io.bitPos.last
 
-  for(i <- 1 until tLen) {
-    if(i%chienPosToNumComboLen == 0){
-      val bitPosQ = Reg(UInt(chienRootsPerCycle.W))
-      val baseQ = Reg(UInt(symbWidth.W))
+  for(i <- 1 until c.T_LEN) {
+    if(i % c.chienPosToNumComboLen == 0){
+      val bitPosQ = Reg(UInt(c.chienRootsPerCycle.W))
+      val baseQ = Reg(UInt(c.SYMB_WIDTH.W))
       val lastQ = Reg(Bool())
       val validQ = RegInit(Bool(), false.B)
       bitPosQ         := stageComb(i-1).io.lsbPosXor
@@ -75,10 +81,10 @@ class RsChienBitPosToNum extends Module with GfParams {
   //////////////////////////////
 
   // Capture enabled only when data is valid in the pipe
-  val captEn = validComb.asTypeOf(UInt(tLen.W)).orR
-  val errPos = Wire(Vec(tLen, UInt(symbWidth.W)))
+  val captEn = validComb.asTypeOf(UInt(c.T_LEN.W)).orR
+  val errPos = Wire(Vec(c.T_LEN, UInt(c.SYMB_WIDTH.W)))
 
-  for(i <- 0 until tLen) {    
+  for(i <- 0 until c.T_LEN) {    
     when(captEn) {
       when(stageComb(i).io.lsbPos =/= 0) {
         stageCapt(i).valid := 1
@@ -88,28 +94,28 @@ class RsChienBitPosToNum extends Module with GfParams {
     }.otherwise{
       stageCapt(i).valid := 0
     }
-    val baseArray = Wire(Vec(chienRootsPerCycle, UInt(symbWidth.W)))
-    for(k <- 0 until chienRootsPerCycle) {
+    val baseArray = Wire(Vec(c.chienRootsPerCycle, UInt(c.SYMB_WIDTH.W)))
+    for(k <- 0 until c.chienRootsPerCycle) {
       baseArray(k) := stageCapt(i).base + k.U
     }
-    //io.errPosIf.bits.vec(i) := nLen - 1 - Mux1H(stageCapt(i).pos, baseArray)
-    errPos(i) := nLen - 1 - Mux1H(stageCapt(i).pos, baseArray)
+    //io.errPosIf.bits.vec(i) := c.N_LEN - 1 - Mux1H(stageCapt(i).pos, baseArray)
+    errPos(i) := c.N_LEN - 1 - Mux1H(stageCapt(i).pos, baseArray)
   }
 
-  val captFfsQ = RegNext(next=lastComb(tLen-1), false.B)
+  val captFfsQ = RegNext(next=lastComb(c.T_LEN-1), false.B)
 
-  //val ffs = Module(new FindFirstSetNew(width=tLen, lsbFirst=false))
-  //val stageValid = Wire(UInt(tLen.W))
-  //val stageValid = VecInit(stageCapt.map(_.valid)).asTypeOf(UInt(tLen.W))
+  //val ffs = Module(new FindFirstSetNew(width=c.T_LEN, lsbFirst=false))
+  //val stageValid = Wire(UInt(c.T_LEN.W))
+  //val stageValid = VecInit(stageCapt.map(_.valid)).asTypeOf(UInt(c.T_LEN.W))
   val stageValid = VecInit(stageCapt.map(_.valid))
 
-  val ffsQ = RegInit(UInt(tLen.W), 0.U)
-  val errPosQ = Reg(Vec(tLen, UInt(symbWidth.W)))
+  val ffsQ = RegInit(UInt(c.T_LEN.W), 0.U)
+  val errPosQ = Reg(Vec(c.T_LEN, UInt(c.SYMB_WIDTH.W)))
   
   when(captFfsQ) {
     //ffsQ := ffs.io.out
-    ffsQ := stageValid.asTypeOf(UInt(tLen.W))
-    errPosQ := (errPos zip stageValid).map{case(a,b) => a & Fill(symbWidth,b)}
+    ffsQ := stageValid.asTypeOf(UInt(c.T_LEN.W))
+    errPosQ := (errPos zip stageValid).map{case(a,b) => a & Fill(c.SYMB_WIDTH,b)}
   }
 
   io.errPosIf.bits.vec := errPosQ
@@ -122,15 +128,15 @@ class RsChienBitPosToNum extends Module with GfParams {
 // RsChienPosOh 
 /////////////////////////////////////////
 
-class RsChienPosOh extends Module with GfParams {
+class RsChienPosOh(c: Config) extends Module{
   val io = IO(new Bundle {
-    val bitPos = Input(UInt(chienRootsPerCycle.W))
+    val bitPos = Input(UInt(c.chienRootsPerCycle.W))
     val bypass = Input(Bool())
-    val lsbPos = Output(UInt(chienRootsPerCycle.W))
-    val lsbPosXor = Output(UInt(chienRootsPerCycle.W))
+    val lsbPos = Output(UInt(c.chienRootsPerCycle.W))
+    val lsbPosXor = Output(UInt(c.chienRootsPerCycle.W))
   })
 
-  val ffs = Module(new FindFirstSetNew(width=chienRootsPerCycle, lsbFirst=true))
+  val ffs = Module(new FindFirstSetNew(width=c.chienRootsPerCycle, lsbFirst=true))
   ffs.io.in := io.bitPos
 
   when(io.bypass === 1.U){
