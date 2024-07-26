@@ -4,16 +4,16 @@ import chisel3._
 import circt.stage.ChiselStage
 import chisel3.util._
 
-class RsBlockRecovery extends Module with GfParams {
+class RsBlockRecovery(config: Config) extends Module with GfParams {
   val io = IO(new Bundle {
-    val sAxisIf = Input(Valid(new axisIf(axisWidth)))
-    val mAxisIf = Output(Valid(new axisIf(axisWidth)))
+    val sAxisIf = Input(Valid(new axisIf(config.BUS_WIDTH)))
+    val mAxisIf = Output(Valid(new axisIf(config.BUS_WIDTH)))
   })
 
   val msgNum = 3
 
   // Instance RsDecoder
-  val rsDecoder = Module(new RsDecoder)
+  val rsDecoder = Module(new RsDecoder(config))
   rsDecoder.io.sAxisIf <> io.sAxisIf
   val goodMsg = ~rsDecoder.io.msgCorrupted & rsDecoder.io.syndValid
   val startMsg = Wire(Bool())
@@ -26,14 +26,14 @@ class RsBlockRecovery extends Module with GfParams {
   queueErrPos.io.enq.bits.ffs := rsDecoder.io.errPosIf.bits.ffs
   queueErrPos.io.deq.ready := startMsg
 
-  val queueErrVal = Module(new Queue(Vec(tLen, UInt(symbWidth.W)), msgNum))
+  val queueErrVal = Module(new Queue(Vec(tLen, UInt(config.SYMB_WIDTH.W)), msgNum))
   queueErrVal.io.enq.valid := rsDecoder.io.errValIf.valid
   queueErrVal.io.enq.bits := rsDecoder.io.errValIf.bits.vec
   queueErrVal.io.deq.ready := startMsg
 
   // sQueue is used to store incomming messages
   class sQueueBundle(width: Int) extends Bundle {
-    val tdata = Vec(width, UInt(symbWidth.W))
+    val tdata = Vec(width, UInt(config.SYMB_WIDTH.W))
     val tlast = Bool()
   }
   val sQueue = Module(new Queue(new sQueueBundle(axisWidth), msgNum*msgDuration))
@@ -81,19 +81,19 @@ class RsBlockRecovery extends Module with GfParams {
   val errValVecRev = VecInit(queueErrVal.io.deq.bits.reverse)
 
   val errPosAxis = Wire(Vec(axisWidth, UInt(log2Ceil(axisWidth).W)))
-  val errPosVec = Reg(Vec(tLen, UInt(symbWidth.W)))
-  val errValVec = Reg(Vec(tLen, UInt(symbWidth.W)))
+  val errPosVec = Reg(Vec(tLen, UInt(config.SYMB_WIDTH.W)))
+  val errValVec = Reg(Vec(tLen, UInt(config.SYMB_WIDTH.W)))
   val errPosSel = Reg(UInt(tLen.W))
 
-  val ffsCountOnes = symbWidth.U - PopCount(queueErrPos.io.deq.bits.ffs)
+  val ffsCountOnes = config.SYMB_WIDTH.U - PopCount(queueErrPos.io.deq.bits.ffs)
   
   when(correctMsg) {
-    errPosVec := (errPosVecRev.asUInt >> (symbWidth.U * ffsCountOnes)).asTypeOf(Vec(tLen, UInt(symbWidth.W)))
-    errValVec := (errValVecRev.asUInt >> (symbWidth.U * ffsCountOnes)).asTypeOf(Vec(tLen, UInt(symbWidth.W)))
+    errPosVec := (errPosVecRev.asUInt >> (config.SYMB_WIDTH.U * ffsCountOnes)).asTypeOf(Vec(tLen, UInt(config.SYMB_WIDTH.W)))
+    errValVec := (errValVecRev.asUInt >> (config.SYMB_WIDTH.U * ffsCountOnes)).asTypeOf(Vec(tLen, UInt(config.SYMB_WIDTH.W)))
     errPosSel := Reverse(rsDecoder.io.errPosIf.bits.ffs) >> ffsCountOnes    
   }.elsewhen(shiftEnableVec.reduce(_|_) === 1.U){
-    errPosVec := (errPosVec.asUInt >> (symbWidth.U * shiftVal)).asTypeOf(Vec(tLen, UInt(symbWidth.W)))
-    errValVec := (errValVec.asUInt >> (symbWidth.U * shiftVal)).asTypeOf(Vec(tLen, UInt(symbWidth.W)))
+    errPosVec := (errPosVec.asUInt >> (config.SYMB_WIDTH.U * shiftVal)).asTypeOf(Vec(tLen, UInt(config.SYMB_WIDTH.W)))
+    errValVec := (errValVec.asUInt >> (config.SYMB_WIDTH.U * shiftVal)).asTypeOf(Vec(tLen, UInt(config.SYMB_WIDTH.W)))
     errPosSel := errPosSel >> shiftVal
   }
 
@@ -107,7 +107,7 @@ class RsBlockRecovery extends Module with GfParams {
     }
   }
 
-  val mTdata = Wire(Vec(axisWidth, UInt(symbWidth.W)))
+  val mTdata = Wire(Vec(axisWidth, UInt(config.SYMB_WIDTH.W)))
   val mTkeep = Wire(UInt(axisWidth.W))
 
   dontTouch(mTdata)
@@ -135,6 +135,8 @@ class RsBlockRecovery extends Module with GfParams {
 
 // runMain Rs.GenRsBlockRecovery
 object GenRsBlockRecovery extends App {
-  ChiselStage.emitSystemVerilogFile(new RsBlockRecovery(), Array())
+  val projectRoot = System.getProperty("project.root")
+  val c = JsonReader.readConfig(projectRoot + "/rs.json")
+  ChiselStage.emitSystemVerilogFile(new RsBlockRecovery(c), Array())
 }
 

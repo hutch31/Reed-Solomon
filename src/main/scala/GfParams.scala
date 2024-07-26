@@ -1,10 +1,13 @@
-// TODO: eval latency for each block and create a param.
-
 package Rs
 
 import chisel3._
 import scala.collection.mutable.ArrayBuffer
 import chisel3.util.{log2Ceil}
+import scala.math.floor
+import play.api.libs.json._
+import scala.io.Source
+
+// TODO: eval latency for each block and create a param.
 
 trait GfParams {
 

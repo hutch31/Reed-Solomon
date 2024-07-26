@@ -3,34 +3,34 @@ package Rs
 import chisel3._
 import chisel3.util._
 
-class ErrataLoc extends Module with GfParams {
+class ErrataLoc(c: Config) extends Module {
   val io = IO(new Bundle {
-    val errPosCoefIf = Input(Valid(new vecFfsIf(tLen)))
-    val errataLocIf = Output(Valid(new vecFfsIf(tLen+1)))
+    val errPosCoefIf = Input(Valid(new vecFfsIf(c.T_LEN, c.SYMB_WIDTH)))
+    val errataLocIf = Output(Valid(new vecFfsIf(c.T_LEN+1, c.SYMB_WIDTH)))
   })
 
   // Modules instances
-  val stage = for(i <- 0 until numOfErrataLocStages) yield Module(new ErrataLocatorStage())
+  val stage = for(i <- 0 until c.numOfErrataLocStages) yield Module(new ErrataLocatorStage(c))
 
   // Slice valid bit that goes into comb stage(s)
-  val errataLoc = Reg(Vec(tLen+1, UInt(symbWidth.W)))
-  val stageOut = Wire(Vec(numOfErrataLocStages, (Vec(tLen+1, UInt(symbWidth.W)))))
+  val errataLoc = Reg(Vec(c.T_LEN+1, UInt(c.SYMB_WIDTH.W)))
+  val stageOut = Wire(Vec(c.numOfErrataLocStages, (Vec(c.T_LEN+1, UInt(c.SYMB_WIDTH.W)))))
 
   ///////////////////////////
   // Shift vec and ffs
   ///////////////////////////
 
-  val shiftMod = Module(new ShiftBundleMod(new ShiftUnit, tLen, numOfErrataLocStages))
+  val shiftMod = Module(new ShiftBundleMod(new ShiftUnit, c.T_LEN, c.numOfErrataLocStages))
 
   class ShiftUnit extends Bundle {
-    val symb = UInt(symbWidth.W)
+    val symb = UInt(c.SYMB_WIDTH.W)
     val ffs = Bool()
   }
 
   // Map inputs
   shiftMod.io.vecIn.valid := io.errPosCoefIf.valid
-  for(i <- 0 until tLen) {
-    shiftMod.io.vecIn.bits(i).ffs := io.errPosCoefIf.bits.ffs.asTypeOf(Vec(tLen, Bool()))(i)
+  for(i <- 0 until c.T_LEN) {
+    shiftMod.io.vecIn.bits(i).ffs := io.errPosCoefIf.bits.ffs.asTypeOf(Vec(c.T_LEN, Bool()))(i)
     shiftMod.io.vecIn.bits(i).symb := io.errPosCoefIf.bits.vec(i)
   }
 
@@ -50,13 +50,13 @@ class ErrataLoc extends Module with GfParams {
   // Capture errataLoc value
   //
   // Output value of errata locator is stored in errataLoc register
-  // it should be assigned to 1*x^0 + 0*x^1 + ... + 0*x^tLen when
+  // it should be assigned to 1*x^0 + 0*x^1 + ... + 0*x^c.T_LEN when
   // errPosCoefIf.valid asserted.
   ///////////////////////////
 
   
   when (io.errPosCoefIf.valid) {
-    for(i <- 0 until tLen+1) {
+    for(i <- 0 until c.T_LEN+1) {
       if(i == 0)
         errataLoc(i) := 1.U
       else
@@ -65,10 +65,10 @@ class ErrataLoc extends Module with GfParams {
   }.otherwise {
     // Capture errataLoc value
     when(errPosVldStage.reduce(_ || _) === 0.U) {
-      errataLoc := stage(numOfErrataLocStages-1).io.errataLoc
+      errataLoc := stage(c.numOfErrataLocStages-1).io.errataLoc
     }.otherwise {      
-      if(numOfErrataLocStages == 1)
-        errataLoc := stage(numOfErrataLocStages-1).io.errataLoc
+      if(c.numOfErrataLocStages == 1)
+        errataLoc := stage(c.numOfErrataLocStages-1).io.errataLoc
       else
         errataLoc := Mux1H(errPosVldStage, stageOut)
     }
@@ -79,8 +79,8 @@ class ErrataLoc extends Module with GfParams {
   stage(0).io.coefPosition := coefPositionShift(0)
   stageOut(0) := stage(0).io.errataLoc
 
-  if(numOfErrataLocStages > 1) {
-    for(i <- 1 until numOfErrataLocStages) {
+  if(c.numOfErrataLocStages > 1) {
+    for(i <- 1 until c.numOfErrataLocStages) {
       stage(i).io.errataLocPrev := stage(i-1).io.errataLoc
       stage(i).io.coefPosition := coefPositionShift(i)
       stageOut(i) := stage(i).io.errataLoc
@@ -88,7 +88,7 @@ class ErrataLoc extends Module with GfParams {
   }
 
   // Capture FFS
-  val ffsQ = Reg(UInt(tLen.W))
+  val ffsQ = Reg(UInt(c.T_LEN.W))
 
   when(errPosVldStage.reduce(_ || _) === 1.U) {
     ffsQ := io.errPosCoefIf.bits.ffs
@@ -101,23 +101,23 @@ class ErrataLoc extends Module with GfParams {
   
 }
 
-class ErrataLocatorStage extends Module with GfParams{
+class ErrataLocatorStage(c: Config) extends Module{
   val io = IO(new Bundle {
-    val errataLocPrev = Input(Vec(tLen+1, UInt(symbWidth.W)))
-    val coefPosition = Input(UInt(symbWidth.W))
-    val errataLoc = Output(Vec(tLen+1, UInt(symbWidth.W)))
+    val errataLocPrev = Input(Vec(c.T_LEN+1, UInt(c.SYMB_WIDTH.W)))
+    val coefPosition = Input(UInt(c.SYMB_WIDTH.W))
+    val errataLoc = Output(Vec(c.T_LEN+1, UInt(c.SYMB_WIDTH.W)))
   })
 
-  val coefPositionPower = Wire(UInt(symbWidth.W))
+  val coefPositionPower = Wire(UInt(c.SYMB_WIDTH.W))
 
-  coefPositionPower := powerFirstRoot(io.coefPosition)
+  coefPositionPower := c.powerFirstRoot(io.coefPosition)
 
-  for(symbIndx <- 0 until tLen+1) {
+  for(symbIndx <- 0 until c.T_LEN+1) {
     if(symbIndx == 0)
       io.errataLoc(symbIndx) := 1.U
-    else if(symbIndx == tLen)
-      io.errataLoc(symbIndx) := gfMult(io.errataLocPrev(symbIndx-1), coefPositionPower)
+    else if(symbIndx == c.T_LEN)
+      io.errataLoc(symbIndx) := c.gfMult(io.errataLocPrev(symbIndx-1), coefPositionPower)
     else
-      io.errataLoc(symbIndx) := gfMult(io.errataLocPrev(symbIndx-1), coefPositionPower) ^ io.errataLocPrev(symbIndx)
+      io.errataLoc(symbIndx) := c.gfMult(io.errataLocPrev(symbIndx-1), coefPositionPower) ^ io.errataLocPrev(symbIndx)
   }
 }

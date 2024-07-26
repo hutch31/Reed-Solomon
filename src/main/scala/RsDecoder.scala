@@ -4,7 +4,7 @@ import chisel3._
 import circt.stage.ChiselStage
 import chisel3.util._
 
-class RsDecoder extends Module with GfParams {
+class RsDecoder(c: Config) extends Module with GfParams {
   val io = IO(new Bundle {
     val sAxisIf = Input(Valid(new axisIf(axisWidth)))
     val errPosIf = Output(Valid(new vecFfsIf(tLen)))
@@ -14,10 +14,10 @@ class RsDecoder extends Module with GfParams {
     val syndValid = Output(Bool())
   })
 
-  val rsSynd = Module(new RsSynd)
-  val rsBm = Module(new RsBm)
-  val rsChien = Module(new RsChien)
-  val rsForney = Module(new RsForney)
+  val rsSynd = Module(new RsSynd(c))
+  val rsBm = Module(new RsBm(c))
+  val rsChien = Module(new RsChien(c))
+  val rsForney = Module(new RsForney(c))
 
   rsSynd.io.sAxisIf <> io.sAxisIf
   rsBm.io.syndIf <> rsSynd.io.syndIf
@@ -36,6 +36,7 @@ class RsDecoder extends Module with GfParams {
 }
 
 // runMain Rs.GenRsDecoder
-object GenRsDecoder extends App {
-  ChiselStage.emitSystemVerilogFile(new RsDecoder(), Array())
-}
+//object GenRsDecoder extends App {
+//  val config = JsonReader.readConfig("/home/egorman44/chisel-lib/rs.json")
+//  ChiselStage.emitSystemVerilogFile(new RsDecoder(config), Array())
+//}

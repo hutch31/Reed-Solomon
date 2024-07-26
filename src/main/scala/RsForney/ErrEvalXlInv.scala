@@ -3,22 +3,22 @@ package Rs
 import chisel3._
 import chisel3.util._
 
-class ErrEvalXlInv extends Module with GfParams {
+class ErrEvalXlInv(c: Config) extends Module {
   val io = IO(new Bundle {
-    val errEvalIf = Input(Valid(new vecFfsIf(tLen+1)))
-    val XlInvIf = Input(Valid(new vecFfsIf(tLen)))
-    val errEvalXlInvIf = Output(Valid(new vecFfsIf(tLen)))
+    val errEvalIf = Input(Valid(new vecFfsIf(c.T_LEN+1, c.SYMB_WIDTH)))
+    val XlInvIf = Input(Valid(new vecFfsIf(c.T_LEN, c.SYMB_WIDTH)))
+    val errEvalXlInvIf = Output(Valid(new vecFfsIf(c.T_LEN, c.SYMB_WIDTH)))
   })
 
-  val shiftVec = Module(new ShiftBundleMod(UInt(symbWidth.W), tLen, numOfQStagesEe0))
-  val stage = for(i <- 0 until numOfQStagesEe0) yield Module(new ErrEvalXlInvStage)
-  val stageOut = Wire(Vec(numOfQStagesEe0, Vec(tLen+1, UInt(symbWidth.W))))
+  val shiftVec = Module(new ShiftBundleMod(UInt(c.SYMB_WIDTH.W), c.T_LEN, c.numOfQStagesEeXl))
+  val stage = for(i <- 0 until c.numOfQStagesEeXl) yield Module(new ErrEvalXlInvStage(c))
+  val stageOut = Wire(Vec(c.numOfQStagesEeXl, Vec(c.T_LEN+1, UInt(c.SYMB_WIDTH.W))))
 
   // Shift XlInvIf
   shiftVec.io.vecIn.bits  := io.XlInvIf.bits.vec
   shiftVec.io.vecIn.valid := io.errEvalIf.valid
 
-  for(i <- 0 until numOfQStagesEe0) {
+  for(i <- 0 until c.numOfQStagesEeXl) {
     stage(i).io.vecIn.bits := io.errEvalIf.bits.vec
     stage(i).io.vecIn.valid := shiftVec.io.lastOut
     stage(i).io.XlInvSymb := shiftVec.io.vecOut.bits(i)
@@ -32,17 +32,17 @@ class ErrEvalXlInv extends Module with GfParams {
   // The matrix fully loaded into accumMat when lastQ is asserted
   val lastQ = RegNext(stage(0).io.vecOut.valid)
 
-  val numOfCyclesEe0 = math.ceil(tLen/numOfStagesEe0.toDouble).toInt
-  val accumMat = Module(new AccumMat(symbWidth, tLen+1, numOfQStagesEe0, numOfCyclesEe0, tLen))
+  val numOfCyclesEeXl = math.ceil(c.T_LEN/c.numOfStagesEeXl.toDouble).toInt
+  val accumMat = Module(new AccumMat(c.SYMB_WIDTH, c.T_LEN+1, c.numOfQStagesEeXl, numOfCyclesEeXl, c.T_LEN))
 
   accumMat.io.vecIn := stageOut
 
   // Capture errEvalXlInvVec value
   // TODO : what FFS to use. Do I need to pipeline it ?! Should ffs be pipelined ?
   val sel = io.XlInvIf.bits.ffs << 1
-  val errEvalXlInvVec = Reg(Vec(tLen, UInt(symbWidth.W)))
+  val errEvalXlInvVec = Reg(Vec(c.T_LEN, UInt(c.SYMB_WIDTH.W)))
   val errEvalXlInvVld = RegNext(next=lastQ, 0.U)
-  val errEvalXlInvFfs = Reg(UInt(tLen.W))
+  val errEvalXlInvFfs = Reg(UInt(c.T_LEN.W))
 
   when(lastQ) {
     errEvalXlInvVec := Mux1H(sel, accumMat.io.matTOut)
@@ -60,26 +60,26 @@ class ErrEvalXlInv extends Module with GfParams {
 
 }
 
-class ErrEvalXlInvStage extends Module with GfParams {
+class ErrEvalXlInvStage(c: Config) extends Module {
   val io = IO(new Bundle {
-    val vecIn = Input(Valid(Vec(tLen+1, UInt(symbWidth.W))))
-    val XlInvSymb = Input(UInt(symbWidth.W))
-    val vecOut = Output(Valid(Vec(tLen+1, UInt(symbWidth.W))))
+    val vecIn = Input(Valid(Vec(c.T_LEN+1, UInt(c.SYMB_WIDTH.W))))
+    val XlInvSymb = Input(UInt(c.SYMB_WIDTH.W))
+    val vecOut = Output(Valid(Vec(c.T_LEN+1, UInt(c.SYMB_WIDTH.W))))
   })
 
-  val qStage = Reg(Vec(numOfQStagesEe0, (Vec(tLen+1, UInt(symbWidth.W)))))
-  val comboStage = Wire(Vec(numOfQStagesEe0, (Vec(tLen+1, UInt(symbWidth.W)))))
+  val qStage = Reg(Vec(c.numOfQStagesEeXl, (Vec(c.T_LEN+1, UInt(c.SYMB_WIDTH.W)))))
+  val comboStage = Wire(Vec(c.numOfQStagesEeXl, (Vec(c.T_LEN+1, UInt(c.SYMB_WIDTH.W)))))
 
-  val qXlInvStage = Reg(Vec(numOfQStagesEe0, UInt(symbWidth.W)))
+  val qXlInvStage = Reg(Vec(c.numOfQStagesEeXl, UInt(c.SYMB_WIDTH.W)))
 
-  io.vecOut.bits := qStage(numOfQStagesEe0-1)
-  io.vecOut.valid := ShiftRegister(io.vecIn.valid, numOfQStagesEe0, false.B, true.B)
+  io.vecOut.bits := qStage(c.numOfQStagesEeXl-1)
+  io.vecOut.valid := ShiftRegister(io.vecIn.valid, c.numOfQStagesEeXl, false.B, true.B)
 
-  for(i <- 0 until numOfQStagesEe0) {
-    val start_indx = 1+i*numOfComboLenEe0
-    val stop_indx = 1+numOfComboLenEe0+i*numOfComboLenEe0
-    val initStage = Wire(Vec(tLen+1, UInt(symbWidth.W)))
-    val initXlInv = Wire(UInt(symbWidth.W))
+  for(i <- 0 until c.numOfQStagesEeXl) {
+    val start_indx = 1+i*c.numOfComboLenEeXl
+    val stop_indx = 1+c.numOfComboLenEeXl+i*c.numOfComboLenEeXl
+    val initStage = Wire(Vec(c.T_LEN+1, UInt(c.SYMB_WIDTH.W)))
+    val initXlInv = Wire(UInt(c.SYMB_WIDTH.W))
 
     if(i == 0) {
       initStage := io.vecIn.bits
@@ -91,11 +91,11 @@ class ErrEvalXlInvStage extends Module with GfParams {
     }
     qXlInvStage(i) := initXlInv
 
-    for(k <- 0 until tLen+1) {
+    for(k <- 0 until c.T_LEN+1) {
       if(k < start_indx)
         comboStage(i)(k) := initStage(k)
       else if(k < stop_indx)
-        comboStage(i)(k) := gfMult(comboStage(i)(k-1), initXlInv) ^ initStage(k)
+        comboStage(i)(k) := c.gfMult(comboStage(i)(k-1), initXlInv) ^ initStage(k)
       else
         comboStage(i)(k) := initStage(k)
     }

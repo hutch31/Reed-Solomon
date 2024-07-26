@@ -5,11 +5,11 @@ import circt.stage.ChiselStage
 import chisel3.util._
 import scala.collection.mutable.ArrayBuffer
 
-class FormalDerivative extends Module with GfParams {
+class FormalDerivative(c: Config) extends Module {
   val io = IO(new Bundle {
-    val XlInvIf = Input(Valid(new vecFfsIf(tLen)))
-    val Xl = Input(Vec(tLen, (UInt(symbWidth.W))))
-    val formalDerIf    = Output(Vec(tLen, UInt(symbWidth.W)))
+    val XlInvIf = Input(Valid(new vecFfsIf(c.T_LEN, c.SYMB_WIDTH)))
+    val Xl = Input(Vec(c.T_LEN, (UInt(c.SYMB_WIDTH.W))))
+    val formalDerIf    = Output(Vec(c.T_LEN, UInt(c.SYMB_WIDTH.W)))
   })
 
   /////////////////////////////////
@@ -17,54 +17,54 @@ class FormalDerivative extends Module with GfParams {
   // mult(Xl[])
   /////////////////////////////////
 
-  val XlInvShift = Reg(Vec(tLen, (UInt(symbWidth.W))))
-  val cntr = RegInit(UInt(log2Ceil(cntrStopLimitFd0).W), 0.U)
+  val XlInvShift = Reg(Vec(c.T_LEN, (UInt(c.SYMB_WIDTH.W))))
+  val cntr = RegInit(UInt(log2Ceil(c.cntrStopLimitFd0).W), 0.U)
 
   // Load data into the shift register
   when(io.XlInvIf.valid) {
     XlInvShift := io.XlInvIf.bits.vec
   }.otherwise{
     // Rotate
-    for(i <- 0 until tLen-numOfStagesFd0)
-      XlInvShift(i) := XlInvShift(i+numOfStagesFd0)
+    for(i <- 0 until c.T_LEN-c.numOfStagesFd0)
+      XlInvShift(i) := XlInvShift(i+c.numOfStagesFd0)
   }
 
   val lastCycleFd0 = Wire(Bool())
 
   // cntr that controls pipe execution
-  if(numOfStagesFd0 == tLen) {
+  if(c.numOfStagesFd0 == c.T_LEN) {
     cntr := 0.U
     lastCycleFd0 := RegNext(next=io.XlInvIf.valid, init=false.B)
   } else {    
     val start_cntr = RegNext(next=io.XlInvIf.valid, init=false.B)
     when(start_cntr){
-      cntr := numOfStagesFd0.U
-    }.elsewhen(cntr === cntrEopFd0.U) {
+      cntr := c.numOfStagesFd0.U
+    }.elsewhen(cntr === c.cntrEopFd0.U) {
       cntr := 0.U
     }.elsewhen(cntr =/= 0.U){
-      cntr := cntr + numOfStagesFd0.U
+      cntr := cntr + c.numOfStagesFd0.U
     }
     // last cycle is used to capture the output value
-    when (cntr === cntrEopFd0.U) {
+    when (cntr === c.cntrEopFd0.U) {
       lastCycleFd0 := true.B
     }.otherwise{
       lastCycleFd0 := false.B
     }
   }
 
-  val XlMultXlInv = Wire(Vec(numOfStagesFd0, (Vec(tLen-1, (UInt(symbWidth.W))))))
+  val XlMultXlInv = Wire(Vec(c.numOfStagesFd0, (Vec(c.T_LEN-1, (UInt(c.SYMB_WIDTH.W))))))
   val stageEoPFd1 = Wire(Bool())
 
-  val stageFd1 = for(i <- 0 until numOfStagesFd0) yield Module(new FormalDerivativeStage1)
-  val stageFd0 = for(i <- 0 until numOfStagesFd0) yield Module(new DeleteItem(tLen, symbWidth))
-  val stageOut = Wire(Vec(numOfStagesFd0, (Vec(tLen-1, (UInt(symbWidth.W))))))
+  val stageFd1 = for(i <- 0 until c.numOfStagesFd0) yield Module(new FormalDerivativeStage1(c))
+  val stageFd0 = for(i <- 0 until c.numOfStagesFd0) yield Module(new DeleteItem(c.T_LEN, c.SYMB_WIDTH))
+  val stageOut = Wire(Vec(c.numOfStagesFd0, (Vec(c.T_LEN-1, (UInt(c.SYMB_WIDTH.W))))))
 
-  for(i <- 0 until numOfStagesFd0) {
+  for(i <- 0 until c.numOfStagesFd0) {
     stageOut(i) := stageFd0(i).io.out
     stageFd0(i).io.in := io.Xl
     stageFd0(i).io.sel := cntr+i.U
-    for(j <- 0 until tLen-1) {
-      XlMultXlInv(i)(j) := gfMult(stageOut(i)(j), XlInvShift(i)) ^ 1.U
+    for(j <- 0 until c.T_LEN-1) {
+      XlMultXlInv(i)(j) := c.gfMult(stageOut(i)(j), XlInvShift(i)) ^ 1.U
     }    
   }
 
@@ -72,33 +72,33 @@ class FormalDerivative extends Module with GfParams {
   // FD1 stage
   /////////////////////////////////
 
-  stageEoPFd1 := ShiftRegister(lastCycleFd0, numOfQStagesFd1+1, false.B, true.B)
+  stageEoPFd1 := ShiftRegister(lastCycleFd0, c.numOfQStagesFd1+1, false.B, true.B)
 
-  for(i <- 0 until numOfStagesFd0) {    
+  for(i <- 0 until c.numOfStagesFd0) {    
     stageFd1(i).io.in := XlMultXlInv(i)
   }    
 
   // Pipelining FD1
-  val pipeFd1Q = Reg(Vec(numOfCyclesFd0, (Vec(numOfStagesFd0, (Vec(tLen-1, (UInt(symbWidth.W))))))))
+  val pipeFd1Q = Reg(Vec(c.numOfCyclesFd0, (Vec(c.numOfStagesFd0, (Vec(c.T_LEN-1, (UInt(c.SYMB_WIDTH.W))))))))
   val pipeFd1VldQ = RegNext(next=stageEoPFd1, init=false.B)
-  val pipeFd1 = Wire(Vec(tLen, (Vec(tLen-1, UInt(symbWidth.W)))))
+  val pipeFd1 = Wire(Vec(c.T_LEN, (Vec(c.T_LEN-1, UInt(c.SYMB_WIDTH.W)))))
 
-  for(i <- 0 until numOfCyclesFd0) {
-    for(k <- 0 until numOfStagesFd0) {
+  for(i <- 0 until c.numOfCyclesFd0) {
+    for(k <- 0 until c.numOfStagesFd0) {
       if(i == 0 )
-        pipeFd1Q(numOfCyclesFd0-1)(k) := stageFd1(k).io.out
+        pipeFd1Q(c.numOfCyclesFd0-1)(k) := stageFd1(k).io.out
       else
-        pipeFd1Q(numOfCyclesFd0-1-i)(k) := pipeFd1Q(numOfCyclesFd0-i)(k)
-      if(i*numOfStagesFd0+k < tLen)
-        pipeFd1(i*numOfStagesFd0+k) := pipeFd1Q(i)(k)
+        pipeFd1Q(c.numOfCyclesFd0-1-i)(k) := pipeFd1Q(c.numOfCyclesFd0-i)(k)
+      if(i*c.numOfStagesFd0+k < c.T_LEN)
+        pipeFd1(i*c.numOfStagesFd0+k) := pipeFd1Q(i)(k)
     }    
   }
 
   // Formal derivative
-  val formalDerArray = Wire(Vec(tLen, (Vec(tLen, UInt(symbWidth.W)))))
+  val formalDerArray = Wire(Vec(c.T_LEN, (Vec(c.T_LEN, UInt(c.SYMB_WIDTH.W)))))
 
-  for(m <- 0 until tLen) {
-    for(n <- 0 until tLen) {
+  for(m <- 0 until c.T_LEN) {
+    for(n <- 0 until c.T_LEN) {
       if(m == 0)
         formalDerArray(m)(n) := 1.U
       else
@@ -106,7 +106,7 @@ class FormalDerivative extends Module with GfParams {
     }
   }
 
-  val formalDer = Reg(Vec(tLen, UInt(symbWidth.W)))
+  val formalDer = Reg(Vec(c.T_LEN, UInt(c.SYMB_WIDTH.W)))
 
   when(pipeFd1VldQ) {
     formalDer := Mux1H(io.XlInvIf.bits.ffs, formalDerArray)
@@ -116,30 +116,30 @@ class FormalDerivative extends Module with GfParams {
 
 }
 
-class FormalDerivativeStage1 extends Module with GfParams {
+class FormalDerivativeStage1(c: Config) extends Module {
   val io = IO(new Bundle {
-    val in = Input(Vec(tLen-1, UInt(symbWidth.W)))
-    val out = Output(Vec(tLen-1, UInt(symbWidth.W)))
+    val in = Input(Vec(c.T_LEN-1, UInt(c.SYMB_WIDTH.W)))
+    val out = Output(Vec(c.T_LEN-1, UInt(c.SYMB_WIDTH.W)))
   })
 
   /////////////////////////////////
   // FD1 stage
   /////////////////////////////////
 
-  val qStage = Reg(Vec(numOfQStagesFd1+1, (Vec(tLen-1, UInt(symbWidth.W)))))
-  val comboStage = Wire(Vec(numOfQStagesFd1, (Vec(tLen-1, UInt(symbWidth.W)))))
+  val qStage = Reg(Vec(c.numOfQStagesFd1+1, (Vec(c.T_LEN-1, UInt(c.SYMB_WIDTH.W)))))
+  val comboStage = Wire(Vec(c.numOfQStagesFd1, (Vec(c.T_LEN-1, UInt(c.SYMB_WIDTH.W)))))
 
   qStage(0) := io.in
-  io.out := qStage(numOfQStagesFd1)
+  io.out := qStage(c.numOfQStagesFd1)
   
-  for(i <- 0 until numOfQStagesFd1){
-    val start_indx = 1+i*numOfComboLenFd1
-    val stop_indx = 1+numOfComboLenFd1+i*numOfComboLenFd1
-    for(k <- 0 until tLen-1) {
+  for(i <- 0 until c.numOfQStagesFd1){
+    val start_indx = 1+i*c.numOfComboLenFd1
+    val stop_indx = 1+c.numOfComboLenFd1+i*c.numOfComboLenFd1
+    for(k <- 0 until c.T_LEN-1) {
       if(k < start_indx)
         comboStage(i)(k) := qStage(i)(k)
       else if(k < stop_indx)
-        comboStage(i)(k) := gfMult(comboStage(i)(k-1), qStage(i)(k))
+        comboStage(i)(k) := c.gfMult(comboStage(i)(k-1), qStage(i)(k))
       else
         comboStage(i)(k) := qStage(i)(k)
     }
