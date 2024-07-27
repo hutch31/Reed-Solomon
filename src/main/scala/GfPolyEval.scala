@@ -5,13 +5,13 @@ import chisel3.util._
 
 // TODO: add GfPolyEvalBase parent class and two childs GfPolyEvalHorner/GfPolyEval.
 
-class GfPolyEvalHorner(vecLen : Int, comboLen : Int, selEn : Boolean=false) extends Module with GfParams {
+class GfPolyEvalHorner(c: Config, vecLen : Int, comboLen : Int, selEn : Boolean=false) extends Module {
 
   val io = IO(new Bundle {
-    val coefVec = Input(Valid(Vec(vecLen, UInt(symbWidth.W))))
+    val coefVec = Input(Valid(Vec(vecLen, UInt(c.SYMB_WIDTH.W))))
     val coefFfs = if(selEn) Some(Input(UInt(vecLen.W))) else None
-    val x = Input(UInt(symbWidth.W))
-    val evalValue = Output(Valid(UInt(symbWidth.W)))    
+    val x = Input(UInt(c.SYMB_WIDTH.W))
+    val evalValue = Output(Valid(UInt(c.SYMB_WIDTH.W)))    
   })
 
   val coefFfs = Wire(UInt(vecLen.W))
@@ -28,13 +28,13 @@ class GfPolyEvalHorner(vecLen : Int, comboLen : Int, selEn : Boolean=false) exte
   val qEn = if(comboLen < vecLen) true else false
 
   class MuxInBundle extends Bundle {
-    val data = UInt(symbWidth.W)
+    val data = UInt(c.SYMB_WIDTH.W)
     val valid = UInt(1.W)
   }
 
-  val combStage = for(i <- 0 until vecLen-1) yield Module(new GfPolyEvalHornerStage)
+  val combStage = for(i <- 0 until vecLen-1) yield Module(new GfPolyEvalHornerStage(c))
   val combVld = Wire(Vec(vecLen-1, Bool()))
-  val combX = Wire(Vec(vecLen-1, UInt(symbWidth.W)))
+  val combX = Wire(Vec(vecLen-1, UInt(c.SYMB_WIDTH.W)))
 
   val muxIn = Wire(Vec(vecLen-1, new MuxInBundle))
 
@@ -50,8 +50,8 @@ class GfPolyEvalHorner(vecLen : Int, comboLen : Int, selEn : Boolean=false) exte
   for(i <- 1 until vecLen-1) {
     combStage(i).io.coef := io.coefVec.bits(i+1)
     if(i%comboLen == 0) {
-      val qStage = Reg(UInt(symbWidth.W))
-      val qX = Reg(UInt(symbWidth.W))      
+      val qStage = Reg(UInt(c.SYMB_WIDTH.W))
+      val qX = Reg(UInt(c.SYMB_WIDTH.W))      
       val qVld = Reg(Bool())
       qStage := combStage(i-1).io.next
       combStage(i).io.prev := qStage
@@ -79,34 +79,34 @@ class GfPolyEvalHorner(vecLen : Int, comboLen : Int, selEn : Boolean=false) exte
 
 }
 
-class GfPolyEvalHornerStage extends Module with GfParams {
+class GfPolyEvalHornerStage(c: Config) extends Module {
   val io = IO(new Bundle {
-    val x = Input(UInt(symbWidth.W))
-    val coef = Input(UInt(symbWidth.W))
-    val prev = Input(UInt(symbWidth.W))
-    val next = Output(UInt(symbWidth.W))
+    val x = Input(UInt(c.SYMB_WIDTH.W))
+    val coef = Input(UInt(c.SYMB_WIDTH.W))
+    val prev = Input(UInt(c.SYMB_WIDTH.W))
+    val next = Output(UInt(c.SYMB_WIDTH.W))
   })
 
-  val mult = gfMult(io.x, io.prev)
+  val mult = c.gfMult(io.x, io.prev)
   io.next := mult ^ io.coef
 
 }
 
-class GfPolyEval(vecLen: Int, selEn: Boolean=false) extends Module with GfParams {
+class GfPolyEval(c: Config, vecLen: Int, selEn: Boolean=false) extends Module {
   val io = IO(new Bundle {
-    val coefVec = Input(Valid(Vec(vecLen, UInt(symbWidth.W))))
+    val coefVec = Input(Valid(Vec(vecLen, UInt(c.SYMB_WIDTH.W))))
     val coefFfs = if(selEn) Some(Input(UInt(vecLen.W))) else None
-    val x = Input(UInt(symbWidth.W))
-    val evalValue = Output(Valid(UInt(symbWidth.W)))    
+    val x = Input(UInt(c.SYMB_WIDTH.W))
+    val evalValue = Output(Valid(UInt(c.SYMB_WIDTH.W)))    
   })
 
-  val stageOut = Wire(Vec(vecLen, UInt(symbWidth.W)))
+  val stageOut = Wire(Vec(vecLen, UInt(c.SYMB_WIDTH.W)))
   for(i <- 0 until vecLen) {
-    val xPower = gfPow(io.x, (vecLen-1-i).U)
-    stageOut(i) := gfMult(io.coefVec.bits(i), xPower)
+    val xPower = c.gfPow(io.x, (vecLen-1-i).U)
+    stageOut(i) := c.gfMult(io.coefVec.bits(i), xPower)
   }
 
-  //val termsSumVec = (stageOut zip io.sAxisIf.bits.tkeep.asTypeOf(Vec(vecLen, Bool()))).map{case(a,b) => a & Fill(symbWidth,b) }
+  //val termsSumVec = (stageOut zip io.sAxisIf.bits.tkeep.asTypeOf(Vec(vecLen, Bool()))).map{case(a,b) => a & Fill(c.SYMB_WIDTH,b) }
   //io.evalValue.bits := termsSumVec.reduce(_^_)
   io.evalValue.bits := stageOut.reduce(_^_)
   io.evalValue.valid := io.coefVec.valid

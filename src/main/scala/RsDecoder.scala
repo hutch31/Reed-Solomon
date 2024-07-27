@@ -4,11 +4,11 @@ import chisel3._
 import circt.stage.ChiselStage
 import chisel3.util._
 
-class RsDecoder(c: Config) extends Module with GfParams {
+class RsDecoder(c: Config) extends Module {
   val io = IO(new Bundle {
-    val sAxisIf = Input(Valid(new axisIf(axisWidth)))
-    val errPosIf = Output(Valid(new vecFfsIf(tLen)))
-    val errValIf = Output(Valid(new vecFfsIf(tLen)))
+    val sAxisIf = Input(Valid(new axisIf(c.BUS_WIDTH, c.SYMB_WIDTH)))
+    val errPosIf = Output(Valid(new vecFfsIf(c.T_LEN, c.SYMB_WIDTH)))
+    val errValIf = Output(Valid(new vecFfsIf(c.T_LEN, c.SYMB_WIDTH)))
     val chienErrDetect = Output(Bool())
     val msgCorrupted = Output(Bool())
     val syndValid = Output(Bool())

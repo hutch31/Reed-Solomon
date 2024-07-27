@@ -6,7 +6,7 @@ import chisel3.util._
 class RsSyndHornerEval(c: Config) extends Module {
   val io = IO(new Bundle {
     val root = Input(UInt(c.SYMB_WIDTH.W))
-    val sAxisIf = Input(Valid(new axisIfNew(c.BUS_WIDTH, c.SYMB_WIDTH)))
+    val sAxisIf = Input(Valid(new axisIf(c.BUS_WIDTH, c.SYMB_WIDTH)))
     val synd = Output(UInt(c.SYMB_WIDTH.W))
   })
 

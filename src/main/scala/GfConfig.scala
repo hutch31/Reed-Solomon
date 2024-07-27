@@ -14,6 +14,7 @@ case class Config(SYMB_WIDTH: Int, BUS_WIDTH: Int, POLY: Int, FCR: Int, N_LEN: I
   val SYMB_NUM = 1 << SYMB_WIDTH
   val FIELD_CHAR = SYMB_NUM-1
   val FIRST_ROOT_POWER = 1
+  val MSG_DURATION = N_LEN/BUS_WIDTH
 
   //////////////////////////////
   // Block Parameters
@@ -223,7 +224,7 @@ object JsonReader {
 }
 
 // Bundles
-class axisIfNew(width: Int, symbWidth: Int) extends Bundle {
+class axisIf(width: Int, symbWidth: Int) extends Bundle {
   val tdata = Vec(width, UInt(symbWidth.W))
   val tkeep = UInt(width.W)
   val tlast = Bool()

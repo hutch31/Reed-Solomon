@@ -6,7 +6,7 @@ import chisel3.util._
 class RsSyndPolyEval(c: Config) extends Module{
   val io = IO(new Bundle {
     val root = Input(UInt(c.SYMB_WIDTH.W))
-    val sAxisIf = Input(Valid(new axisIfNew(c.BUS_WIDTH, c.SYMB_WIDTH)))
+    val sAxisIf = Input(Valid(new axisIf(c.BUS_WIDTH, c.SYMB_WIDTH)))
     val syndIf = Output(Valid(UInt(c.SYMB_WIDTH.W)))
   })
 
