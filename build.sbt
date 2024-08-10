@@ -10,6 +10,7 @@ lazy val root = (project in file("."))
   .settings(
     name := "chisel-lib",
     libraryDependencies ++= Seq(
+      "com.typesafe.play" %% "play-json" % "2.9.2",
       "org.chipsalliance" %% "chisel" % chiselVersion,
       "org.scalatest" %% "scalatest" % "3.2.16" % "test",
     ),
@@ -21,4 +22,8 @@ lazy val root = (project in file("."))
       "-Ymacro-annotations",
     ),
     addCompilerPlugin("org.chipsalliance" % "chisel-plugin" % chiselVersion cross CrossVersion.full),
+    Compile / run / fork := true,
+    Compile / run / javaOptions ++= Seq(
+      "-Dproject.root=" + baseDirectory.value
+    ),
   )
