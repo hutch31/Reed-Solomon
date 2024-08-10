@@ -17,17 +17,13 @@ def read_json(file_path):
         ip_params = json.load(file)
     return ip_params
 
-# Set path to search modules
-
-dig_com_path = get_path('DIGITAL_COMMUNICAITON')
-coco_path = get_path('COCO_PATH')
-sys.path.append(coco_path+"/coco_env")
-sys.path.append(coco_path+"/coco_axis")
-sys.path.append(dig_com_path + "/rs/python")
-
 # Load all project directories and configuration.
-
 PRJ_DIR = Path(__file__).resolve().parent.parent
+coco_path = Path(__file__).resolve().parent
+
+sys.path.append(str(coco_path/'coco_env'))
+sys.path.append(str(coco_path/'coco_axis'))
+
 
 ip_params = read_json(PRJ_DIR/'rs.json')
 
