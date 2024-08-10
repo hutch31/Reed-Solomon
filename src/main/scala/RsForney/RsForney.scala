@@ -57,13 +57,21 @@ class RsForney(c: Config) extends Module {
   val errEvalXlInv = Module(new ErrEvalXlInv(c))
   val formalDer = Module(new FormalDerivative(c))
   val errVal = Module(new ErrVal(c))
-  // TODO: Is 4 Entries enought ?
-  // TODO: add queue
-  //val queueErrPos = Module(new Queue(new vecFfsIf(c.T_LEN), 4))
-  // ErrataLocator
+
   errataLoc.io.errPosCoefIf <> errPosCoefIf
   errEval.io.errataLocIf <> errataLoc.io.errataLocIf
-  errEval.io.syndIf := io.syndIf
+
+  
+  if(c.forneySyndFifoEn) {
+    val queueSynd = Module(new Queue(Vec(c.REDUNDANCY, UInt(c.SYMB_WIDTH.W)), c.forneySyndFifoDepth))
+    queueSynd.io.enq.valid := io.syndIf.valid
+    queueSynd.io.enq.bits := io.syndIf.bits
+    queueSynd.io.deq.ready := errEval.io.errEvalIf.valid
+    errEval.io.syndIf.bits := queueSynd.io.deq.bits    
+  } else {
+    errEval.io.syndIf.bits := io.syndIf.bits
+  }
+  errEval.io.syndIf.valid := 0.U
 
   errEvalXlInv.io.errEvalIf <> errEval.io.errEvalIf
   errEvalXlInv.io.XlInvIf <> XlInvFfsIf
@@ -83,12 +91,8 @@ class RsForney(c: Config) extends Module {
 
 object GenForney extends App {
   val c = JsonReader.readConfig("/home/egorman44/chisel-lib/rs.json")
-  //ChiselStage.emitSystemVerilogFile(new ErrataLocatorPar(), Array())
+  ChiselStage.emitSystemVerilogFile(new RsForney(c), Array())
+  //ChiselStage.emitSystemVerilogFile(new FormalDerivative(), Array())
   //ChiselStage.emitSystemVerilogFile(new ErrEval(), Array())
   //ChiselStage.emitSystemVerilogFile(new ErrEvalXlInv(), Array())
-  //ChiselStage.emitSystemVerilogFile(new ShiftTest(), Array())
-  ChiselStage.emitSystemVerilogFile(new RsForney(c), Array())
-  //ChiselStage.emitSystemVerilogFile(new GfDiv(), Array())
-  //ChiselStage.emitSystemVerilogFile(new FormalDerivative(), Array())
-  //ChiselStage.emitSystemVerilogFile(new FormalDerivativeStage1(), Array())
 }
