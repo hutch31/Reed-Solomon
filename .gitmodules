@@ -1,0 +1,6 @@
+[submodule "coco_sim/coco_axis"]
+	path = coco_sim/coco_axis
+	url = https://github.com/egorman44/coco_axis.git
+[submodule "coco_sim/coco_env"]
+	path = coco_sim/coco_env
+	url = https://github.com/egorman44/coco_env
