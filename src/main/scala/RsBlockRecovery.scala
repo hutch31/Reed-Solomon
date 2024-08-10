@@ -8,9 +8,8 @@ class RsBlockRecovery(c: Config) extends Module {
   val io = IO(new Bundle {
     val sAxisIf = Input(Valid(new axisIf(c.BUS_WIDTH, c.SYMB_WIDTH)))
     val mAxisIf = Output(Valid(new axisIf(c.BUS_WIDTH, c.SYMB_WIDTH)))
+    val fifoFull = Output(UInt(1.W))
   })
-
-  val msgNum = 3
 
   // Instance RsDecoder
   val rsDecoder = Module(new RsDecoder(c))
@@ -20,13 +19,13 @@ class RsBlockRecovery(c: Config) extends Module {
 
   // store error positions and values in the queues.
   // When the message is not corrupted make queueErrPos.io.enq.bits.ffs = 0
-  val queueErrPos = Module(new Queue(new vecFfsIf(c.T_LEN, c.SYMB_WIDTH), msgNum))
+  val queueErrPos = Module(new Queue(new vecFfsIf(c.T_LEN, c.SYMB_WIDTH), c.msgNum))
   queueErrPos.io.enq.valid := rsDecoder.io.errPosIf.valid
   queueErrPos.io.enq.bits.vec := rsDecoder.io.errPosIf.bits.vec
   queueErrPos.io.enq.bits.ffs := rsDecoder.io.errPosIf.bits.ffs
   queueErrPos.io.deq.ready := startMsg
 
-  val queueErrVal = Module(new Queue(Vec(c.T_LEN, UInt(c.SYMB_WIDTH.W)), msgNum))
+  val queueErrVal = Module(new Queue(Vec(c.T_LEN, UInt(c.SYMB_WIDTH.W)), c.msgNum))
   queueErrVal.io.enq.valid := rsDecoder.io.errValIf.valid
   queueErrVal.io.enq.bits := rsDecoder.io.errValIf.bits.vec
   queueErrVal.io.deq.ready := startMsg
@@ -36,7 +35,7 @@ class RsBlockRecovery(c: Config) extends Module {
     val tdata = Vec(width, UInt(c.SYMB_WIDTH.W))
     val tlast = Bool()
   }
-  val sQueue = Module(new Queue(new sQueueBundle(c.BUS_WIDTH), msgNum*c.MSG_DURATION))
+  val sQueue = Module(new Queue(new sQueueBundle(c.BUS_WIDTH), c.msgNum*c.MSG_DURATION))
 
   sQueue.io.enq.valid := io.sAxisIf.valid
   sQueue.io.enq.bits.tdata := io.sAxisIf.bits.tdata
@@ -85,11 +84,11 @@ class RsBlockRecovery(c: Config) extends Module {
   val errPosSel = Reg(UInt(c.T_LEN.W))
 
   val ffsCountOnes = c.SYMB_WIDTH.U - PopCount(queueErrPos.io.deq.bits.ffs)
-  
+
   when(correctMsg) {
     errPosVec := (errPosVecRev.asUInt >> (c.SYMB_WIDTH.U * ffsCountOnes)).asTypeOf(Vec(c.T_LEN, UInt(c.SYMB_WIDTH.W)))
     errValVec := (errValVecRev.asUInt >> (c.SYMB_WIDTH.U * ffsCountOnes)).asTypeOf(Vec(c.T_LEN, UInt(c.SYMB_WIDTH.W)))
-    errPosSel := Reverse(rsDecoder.io.errPosIf.bits.ffs) >> ffsCountOnes    
+    errPosSel := queueErrPos.io.deq.bits.ffs
   }.elsewhen(shiftEnableVec.reduce(_|_) === 1.U){
     errPosVec := (errPosVec.asUInt >> (c.SYMB_WIDTH.U * shiftVal)).asTypeOf(Vec(c.T_LEN, UInt(c.SYMB_WIDTH.W)))
     errValVec := (errValVec.asUInt >> (c.SYMB_WIDTH.U * shiftVal)).asTypeOf(Vec(c.T_LEN, UInt(c.SYMB_WIDTH.W)))
@@ -127,7 +126,7 @@ class RsBlockRecovery(c: Config) extends Module {
   io.mAxisIf.bits.tdata := mTdata
   io.mAxisIf.bits.tlast := sQueue.io.deq.bits.tlast
   io.mAxisIf.bits.tkeep := mTkeep
-
+  io.fifoFull := !sQueue.io.enq.ready
 }
 
 // runMain Rs.GenRsBlockRecovery
