@@ -13,24 +13,20 @@ class ErrEval(c: Config) extends Module{
   val syndRev = Wire(Vec(c.REDUNDANCY, UInt(c.SYMB_WIDTH.W)))
 
   syndRev := io.syndIf.bits
-  // TODO: check reverse Check the 
-  //for(i <- 0 until c.REDUNDANCY) {
-  //  syndRev(i) := io.syndIf.bits(c.REDUNDANCY-1-i)
-  //}
 
   ///////////////////////////////////
   // Shift errataLoc
   ///////////////////////////////////
 
-  val shiftVec = Module(new ShiftBundleMod(UInt(c.SYMB_WIDTH.W), c.T_LEN+1, c.numOfSymbEe))
+  val shiftVec = Module(new ShiftBundleMod(UInt(c.SYMB_WIDTH.W), c.T_LEN+1, c.forneyErrEvalTermsPerCycle))
   shiftVec.io.vecIn.bits  := io.errataLocIf.bits.vec
   shiftVec.io.vecIn.valid := io.errataLocIf.valid
 
   // Connect shift output to combo stage(s)
-  val stage = for(i <- 0 until c.numOfSymbEe) yield Module(new ErrEvalStage(c))
-  val stageOut = Wire(Vec(c.numOfSymbEe, Vec(c.REDUNDANCY, UInt(c.SYMB_WIDTH.W))))
+  val stage = for(i <- 0 until c.forneyErrEvalTermsPerCycle) yield Module(new ErrEvalStage(c))
+  val stageOut = Wire(Vec(c.forneyErrEvalTermsPerCycle, Vec(c.REDUNDANCY, UInt(c.SYMB_WIDTH.W))))
 
-  for(i <- 0 until c.numOfSymbEe) {
+  for(i <- 0 until c.forneyErrEvalTermsPerCycle) {
     stage(i).io.syndRev := syndRev
     stage(i).io.errataLocSymb := shiftVec.io.vecOut.bits(i)
     stageOut(i) := stage(i).io.syndXErrataLoc
@@ -40,8 +36,7 @@ class ErrEval(c: Config) extends Module{
   // Accum matrix
   ///////////////////////////////////
 
-  val numOfCycles = math.ceil((c.T_LEN+1)/c.numOfSymbEe.toDouble).toInt
-  val accumMat = Module(new AccumMat(c.SYMB_WIDTH, c.REDUNDANCY, c.numOfSymbEe, numOfCycles, c.T_LEN+1))
+  val accumMat = Module(new AccumMat(c.SYMB_WIDTH, c.REDUNDANCY, c.forneyErrEvalTermsPerCycle, c.forneyErrEvalShiftLatency , c.T_LEN+1))
   accumMat.io.vecIn := stageOut
   val accumVld = RegNext(shiftVec.io.lastOut)
 
@@ -50,7 +45,7 @@ class ErrEval(c: Config) extends Module{
   ///////////////////////////////////
 
   val diagXorAll = Module(new DiagonalXorAll(c.T_LEN+1, c.REDUNDANCY, c.SYMB_WIDTH))
-
+  
   diagXorAll.io.recMatrix := accumMat.io.matOut
 
   // Pipeline

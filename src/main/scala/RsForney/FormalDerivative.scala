@@ -5,10 +5,14 @@ import circt.stage.ChiselStage
 import chisel3.util._
 import scala.collection.mutable.ArrayBuffer
 
+// TODO: use shiftUni instead o fshift reg
+// TODO: use AccumMat output matTOut instead of transposed formalDerArray
+
 class FormalDerivative(c: Config) extends Module {
   val io = IO(new Bundle {
     val XlInvIf = Input(Valid(new vecFfsIf(c.T_LEN, c.SYMB_WIDTH)))
     val Xl = Input(Vec(c.T_LEN, (UInt(c.SYMB_WIDTH.W))))
+    // TODO: do we need valid signal here ?! 
     val formalDerIf    = Output(Vec(c.T_LEN, UInt(c.SYMB_WIDTH.W)))
   })
 
@@ -18,91 +22,81 @@ class FormalDerivative(c: Config) extends Module {
   /////////////////////////////////
 
   val XlInvShift = Reg(Vec(c.T_LEN, (UInt(c.SYMB_WIDTH.W))))
-  val cntr = RegInit(UInt(log2Ceil(c.cntrStopLimitFd0).W), 0.U)
+  val cntr = RegInit(UInt(log2Ceil(c.forneyFdStopLimit).W), 0.U)
 
   // Load data into the shift register
   when(io.XlInvIf.valid) {
     XlInvShift := io.XlInvIf.bits.vec
   }.otherwise{
     // Rotate
-    for(i <- 0 until c.T_LEN-c.numOfStagesFd0)
-      XlInvShift(i) := XlInvShift(i+c.numOfStagesFd0)
+    for(i <- 0 until c.T_LEN-c.forneyFdTermsPerCycle)
+      XlInvShift(i) := XlInvShift(i+c.forneyFdTermsPerCycle)
   }
 
   val lastCycleFd0 = Wire(Bool())
 
   // cntr that controls pipe execution
-  if(c.numOfStagesFd0 == c.T_LEN) {
+  if(c.forneyFdTermsPerCycle == c.T_LEN) {
     cntr := 0.U
     lastCycleFd0 := RegNext(next=io.XlInvIf.valid, init=false.B)
-  } else {    
+  } else {
     val start_cntr = RegNext(next=io.XlInvIf.valid, init=false.B)
     when(start_cntr){
-      cntr := c.numOfStagesFd0.U
-    }.elsewhen(cntr === c.cntrEopFd0.U) {
+      cntr := c.forneyFdTermsPerCycle.U
+    }.elsewhen(cntr === c.forneyFdEop.U) {
       cntr := 0.U
     }.elsewhen(cntr =/= 0.U){
-      cntr := cntr + c.numOfStagesFd0.U
+      cntr := cntr + c.forneyFdTermsPerCycle.U
     }
     // last cycle is used to capture the output value
-    when (cntr === c.cntrEopFd0.U) {
+    when (cntr === c.forneyFdEop.U) {
       lastCycleFd0 := true.B
     }.otherwise{
       lastCycleFd0 := false.B
     }
   }
 
-  val XlMultXlInv = Wire(Vec(c.numOfStagesFd0, (Vec(c.T_LEN-1, (UInt(c.SYMB_WIDTH.W))))))
+  val XlMultXlInv = Wire(Vec(c.forneyFdTermsPerCycle, (Vec(c.T_LEN-1, (UInt(c.SYMB_WIDTH.W))))))
   val stageEoPFd1 = Wire(Bool())
 
-  val stageFd1 = for(i <- 0 until c.numOfStagesFd0) yield Module(new FormalDerivativeStage1(c))
-  val stageFd0 = for(i <- 0 until c.numOfStagesFd0) yield Module(new DeleteItem(c.T_LEN, c.SYMB_WIDTH))
-  val stageOut = Wire(Vec(c.numOfStagesFd0, (Vec(c.T_LEN-1, (UInt(c.SYMB_WIDTH.W))))))
+  val stageFd = for(i <- 0 until c.forneyFdTermsPerCycle) yield Module(new FormalDerivativeStage(c))
+  val deleteItem = for(i <- 0 until c.forneyFdTermsPerCycle) yield Module(new DeleteItem(c.T_LEN, c.SYMB_WIDTH))
 
-  for(i <- 0 until c.numOfStagesFd0) {
-    stageOut(i) := stageFd0(i).io.out
-    stageFd0(i).io.in := io.Xl
-    stageFd0(i).io.sel := cntr+i.U
+  for(i <- 0 until c.forneyFdTermsPerCycle) {
+    deleteItem(i).io.in := io.Xl
+    deleteItem(i).io.sel := cntr+i.U
     for(j <- 0 until c.T_LEN-1) {
-      XlMultXlInv(i)(j) := c.gfMult(stageOut(i)(j), XlInvShift(i)) ^ 1.U
+      XlMultXlInv(i)(j) := c.gfMult(deleteItem(i).io.out(j), XlInvShift(i)) ^ 1.U
     }    
   }
 
   /////////////////////////////////
-  // FD1 stage
+  // FD stage
   /////////////////////////////////
 
-  stageEoPFd1 := ShiftRegister(lastCycleFd0, c.numOfQStagesFd1+1, false.B, true.B)
+  stageEoPFd1 := ShiftRegister(lastCycleFd0, c.forneyFdQStages+1, false.B, true.B)
 
-  for(i <- 0 until c.numOfStagesFd0) {    
-    stageFd1(i).io.in := XlMultXlInv(i)
-  }    
+  for(i <- 0 until c.forneyFdTermsPerCycle) {    
+    stageFd(i).io.in := XlMultXlInv(i)
+  }
 
   // Pipelining FD1
-  val pipeFd1Q = Reg(Vec(c.numOfCyclesFd0, (Vec(c.numOfStagesFd0, (Vec(c.T_LEN-1, (UInt(c.SYMB_WIDTH.W))))))))
   val pipeFd1VldQ = RegNext(next=stageEoPFd1, init=false.B)
-  val pipeFd1 = Wire(Vec(c.T_LEN, (Vec(c.T_LEN-1, UInt(c.SYMB_WIDTH.W)))))
 
-  for(i <- 0 until c.numOfCyclesFd0) {
-    for(k <- 0 until c.numOfStagesFd0) {
-      if(i == 0 )
-        pipeFd1Q(c.numOfCyclesFd0-1)(k) := stageFd1(k).io.out
-      else
-        pipeFd1Q(c.numOfCyclesFd0-1-i)(k) := pipeFd1Q(c.numOfCyclesFd0-i)(k)
-      if(i*c.numOfStagesFd0+k < c.T_LEN)
-        pipeFd1(i*c.numOfStagesFd0+k) := pipeFd1Q(i)(k)
-    }    
-  }
+  // Accumulate FDstage output
+  val accumMat = Module(new AccumMat(c.SYMB_WIDTH, c.T_LEN-1, c.forneyFdTermsPerCycle, c.forneyFdShiftLatency , c.T_LEN))
+  accumMat.io.vecIn := VecInit(stageFd.map(_.io.out))
 
   // Formal derivative
   val formalDerArray = Wire(Vec(c.T_LEN, (Vec(c.T_LEN, UInt(c.SYMB_WIDTH.W)))))
-
+  dontTouch(formalDerArray)
+  
   for(m <- 0 until c.T_LEN) {
     for(n <- 0 until c.T_LEN) {
       if(m == 0)
         formalDerArray(m)(n) := 1.U
       else
-        formalDerArray(m)(n) := pipeFd1(n)(m-1)
+        formalDerArray(m)(n) := accumMat.io.matOut(n)(m-1)
     }
   }
 
@@ -113,28 +107,23 @@ class FormalDerivative(c: Config) extends Module {
   }
 
   io.formalDerIf := formalDer
-
 }
 
-class FormalDerivativeStage1(c: Config) extends Module {
+class FormalDerivativeStage(c: Config) extends Module {
   val io = IO(new Bundle {
     val in = Input(Vec(c.T_LEN-1, UInt(c.SYMB_WIDTH.W)))
     val out = Output(Vec(c.T_LEN-1, UInt(c.SYMB_WIDTH.W)))
   })
 
-  /////////////////////////////////
-  // FD1 stage
-  /////////////////////////////////
-
-  val qStage = Reg(Vec(c.numOfQStagesFd1+1, (Vec(c.T_LEN-1, UInt(c.SYMB_WIDTH.W)))))
-  val comboStage = Wire(Vec(c.numOfQStagesFd1, (Vec(c.T_LEN-1, UInt(c.SYMB_WIDTH.W)))))
+  val qStage = Reg(Vec(c.forneyFdQStages+1, (Vec(c.T_LEN-1, UInt(c.SYMB_WIDTH.W)))))
+  val comboStage = Wire(Vec(c.forneyFdQStages, (Vec(c.T_LEN-1, UInt(c.SYMB_WIDTH.W)))))
 
   qStage(0) := io.in
-  io.out := qStage(c.numOfQStagesFd1)
+  io.out := qStage(c.forneyFdQStages)
   
-  for(i <- 0 until c.numOfQStagesFd1){
-    val start_indx = 1+i*c.numOfComboLenFd1
-    val stop_indx = 1+c.numOfComboLenFd1+i*c.numOfComboLenFd1
+  for(i <- 0 until c.forneyFdQStages){
+    val start_indx = 1+i*c.forneyFdComboLen
+    val stop_indx = 1+c.forneyFdComboLen+i*c.forneyFdComboLen
     for(k <- 0 until c.T_LEN-1) {
       if(k < start_indx)
         comboStage(i)(k) := qStage(i)(k)

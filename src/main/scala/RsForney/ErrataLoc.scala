@@ -10,17 +10,17 @@ class ErrataLoc(c: Config) extends Module {
   })
 
   // Modules instances
-  val stage = for(i <- 0 until c.numOfErrataLocStages) yield Module(new ErrataLocatorStage(c))
+  val stage = for(i <- 0 until c.forneyErrataLocTermsPerCycle) yield Module(new ErrataLocatorStage(c))
 
   // Slice valid bit that goes into comb stage(s)
   val errataLoc = Reg(Vec(c.T_LEN+1, UInt(c.SYMB_WIDTH.W)))
-  val stageOut = Wire(Vec(c.numOfErrataLocStages, (Vec(c.T_LEN+1, UInt(c.SYMB_WIDTH.W)))))
+  val stageOut = Wire(Vec(c.forneyErrataLocTermsPerCycle, (Vec(c.T_LEN+1, UInt(c.SYMB_WIDTH.W)))))
 
   ///////////////////////////
   // Shift vec and ffs
   ///////////////////////////
 
-  val shiftMod = Module(new ShiftBundleMod(new ShiftUnit, c.T_LEN, c.numOfErrataLocStages))
+  val shiftMod = Module(new ShiftBundleMod(new ShiftUnit, c.T_LEN, c.forneyErrataLocTermsPerCycle))
 
   class ShiftUnit extends Bundle {
     val symb = UInt(c.SYMB_WIDTH.W)
@@ -65,22 +65,21 @@ class ErrataLoc(c: Config) extends Module {
   }.otherwise {
     // Capture errataLoc value
     when(errPosVldStage.reduce(_ || _) === 0.U) {
-      errataLoc := stage(c.numOfErrataLocStages-1).io.errataLoc
+      errataLoc := stage(c.forneyErrataLocTermsPerCycle-1).io.errataLoc
     }.otherwise {      
-      if(c.numOfErrataLocStages == 1)
-        errataLoc := stage(c.numOfErrataLocStages-1).io.errataLoc
+      if(c.forneyErrataLocTermsPerCycle == 1)
+        errataLoc := stage(c.forneyErrataLocTermsPerCycle-1).io.errataLoc
       else
         errataLoc := Mux1H(errPosVldStage, stageOut)
     }
   }
 
-  // TODO : coefPositionShift 
   stage(0).io.errataLocPrev := errataLoc
   stage(0).io.coefPosition := coefPositionShift(0)
   stageOut(0) := stage(0).io.errataLoc
 
-  if(c.numOfErrataLocStages > 1) {
-    for(i <- 1 until c.numOfErrataLocStages) {
+  if(c.forneyErrataLocTermsPerCycle > 1) {
+    for(i <- 1 until c.forneyErrataLocTermsPerCycle) {
       stage(i).io.errataLocPrev := stage(i-1).io.errataLoc
       stage(i).io.coefPosition := coefPositionShift(i)
       stageOut(i) := stage(i).io.errataLoc

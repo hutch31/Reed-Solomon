@@ -98,22 +98,17 @@ class RsChienBitPosToNum(c: Config) extends Module{
     for(k <- 0 until c.chienRootsPerCycle) {
       baseArray(k) := stageCapt(i).base + k.U
     }
-    //io.errPosIf.bits.vec(i) := c.N_LEN - 1 - Mux1H(stageCapt(i).pos, baseArray)
     errPos(i) := c.N_LEN - 1 - Mux1H(stageCapt(i).pos, baseArray)
   }
 
   val captFfsQ = RegNext(next=lastComb(c.T_LEN-1), false.B)
 
-  //val ffs = Module(new FindFirstSetNew(width=c.T_LEN, lsbFirst=false))
-  //val stageValid = Wire(UInt(c.T_LEN.W))
-  //val stageValid = VecInit(stageCapt.map(_.valid)).asTypeOf(UInt(c.T_LEN.W))
   val stageValid = VecInit(stageCapt.map(_.valid))
 
   val ffsQ = RegInit(UInt(c.T_LEN.W), 0.U)
   val errPosQ = Reg(Vec(c.T_LEN, UInt(c.SYMB_WIDTH.W)))
   
   when(captFfsQ) {
-    //ffsQ := ffs.io.out
     ffsQ := stageValid.asTypeOf(UInt(c.T_LEN.W))
     errPosQ := (errPos zip stageValid).map{case(a,b) => a & Fill(c.SYMB_WIDTH,b)}
   }
@@ -145,6 +140,7 @@ class RsChienPosOh(c: Config) extends Module{
     io.lsbPos := ffs.io.out
   }
 
+  // Remove logical one in the most significant position of the vector
   io.lsbPosXor := io.bitPos ^ io.lsbPos
 
 }

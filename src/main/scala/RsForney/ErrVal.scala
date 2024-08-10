@@ -36,7 +36,7 @@ class ErrVal(c: Config) extends Module {
     val XlSymb = UInt(c.SYMB_WIDTH.W)
   }
 
-  val shiftMod = Module(new ShiftBundleMod(new ShiftUnit, c.T_LEN, c.numOfSymbEv))
+  val shiftMod = Module(new ShiftBundleMod(new ShiftUnit, c.T_LEN, c.forneyEvTermsPerCycle))
 
   // Map inputs
   shiftMod.io.vecIn.valid := io.errEvalXlInvIf.valid
@@ -55,10 +55,10 @@ class ErrVal(c: Config) extends Module {
   // Combo Stage
   ///////////////////////////
 
-  val errEvalXlInvAdj = Wire(Vec(c.numOfSymbEv, UInt(c.SYMB_WIDTH.W)))
-  val errValStageOut = Wire(Vec(c.numOfSymbEv, UInt(c.SYMB_WIDTH.W)))
+  val errEvalXlInvAdj = Wire(Vec(c.forneyEvTermsPerCycle, UInt(c.SYMB_WIDTH.W)))
+  val errValStageOut = Wire(Vec(c.forneyEvTermsPerCycle, UInt(c.SYMB_WIDTH.W)))
   
-  for(i <- 0 until c.numOfSymbEv) {
+  for(i <- 0 until c.forneyEvTermsPerCycle) {
     errEvalXlInvAdj(i) := c.gfMult(errEvalXlInvShift(i), XlShift(i))
     errValStageOut(i) := c.gfDiv(errEvalXlInvAdj(i), formDerShift(i))
   }
@@ -67,21 +67,20 @@ class ErrVal(c: Config) extends Module {
   // Accum Vector
   ///////////////////////////
 
-  val numOfCycles = math.ceil(c.T_LEN/c.numOfSymbEv.toDouble).toInt
   // The matrix fully loaded into accumMat when lastQ is asserted
 
   val lastQ = RegNext(shiftMod.io.lastOut)
-  val errValAccumVec = Reg(Vec(numOfCycles, Vec(c.numOfSymbEv, UInt(c.SYMB_WIDTH.W))))
+  val errValAccumVec = Reg(Vec(c.forneyEvShiftLatency, Vec(c.forneyEvTermsPerCycle, UInt(c.SYMB_WIDTH.W))))
   val errValVec = Wire(Vec(c.T_LEN, UInt(c.SYMB_WIDTH.W)))
 
-  for(i <- 0 until numOfCycles) {
+  for(i <- 0 until c.forneyEvShiftLatency) {
     if(i == 0)
-      errValAccumVec(numOfCycles-1) := errValStageOut
+      errValAccumVec(c.forneyEvShiftLatency-1) := errValStageOut
     else
-      errValAccumVec(numOfCycles-1-i) := errValAccumVec(numOfCycles-i)
-    for(k <- 0 until c.numOfSymbEv) {
-      if(i*numOfCycles+k < c.T_LEN)
-        errValVec(i*numOfCycles+k) := errValAccumVec(i)(k)
+      errValAccumVec(c.forneyEvShiftLatency-1-i) := errValAccumVec(c.forneyEvShiftLatency-i)
+    for(k <- 0 until c.forneyEvTermsPerCycle) {
+      if(i*c.forneyEvShiftLatency+k < c.T_LEN)
+        errValVec(i*c.forneyEvShiftLatency+k) := errValAccumVec(i)(k)
     }
   }
 

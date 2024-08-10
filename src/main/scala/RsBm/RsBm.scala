@@ -11,12 +11,17 @@ class RsBm(c: Config) extends Module {
   })
 
   val lenWidth = log2Ceil(c.REDUNDANCY)
-  val rsBmStage = for(i <- 0 until c.numOfSymbBm) yield  Module(new RsBmStage(c, lenWidth))
+  val rsBmStage = for(i <- 0 until c.bmTermsPerCycle) yield  Module(new RsBmStage(c, lenWidth))
 
   val syndInvVec = Wire(Vec(c.REDUNDANCY, Vec(c.T_LEN+1, UInt(c.SYMB_WIDTH.W))))
 
   ///////////////////////////
   // Syndrome manipulation
+  //
+  // syndInvVec(0) = [synd(0),       0,       0,       0, 0, ... 0]
+  // syndInvVec(1) = [synd(1), symd(0),       0,       0, 0, ... 0]
+  // syndInvVec(2) = [synd(2), synd(1), symd(0),       0, 0, ... 0]
+  // syndInvVec(3) = [synd(3), synd(2), symd(1), synd(0), 0, ... 0]
   ///////////////////////////
 
   for(rootIndx <- 0 until c.REDUNDANCY) {
@@ -32,7 +37,7 @@ class RsBm(c: Config) extends Module {
   // Shift 
   ///////////////////////////
 
-  val shiftMod = Module(new ShiftBundleMod(new ShiftUnit, c.REDUNDANCY, c.numOfSymbBm))
+  val shiftMod = Module(new ShiftBundleMod(new ShiftUnit, c.REDUNDANCY, c.bmTermsPerCycle))
 
   class ShiftUnit extends Bundle {
     val syndInv = Vec(c.T_LEN+1, UInt(c.SYMB_WIDTH.W))
@@ -61,7 +66,7 @@ class RsBm(c: Config) extends Module {
   val errLocLenQ = Reg(UInt(lenWidth.W))
   val auxBQ = Reg(Vec(c.T_LEN+1, UInt(c.SYMB_WIDTH.W)))
 
-  val stageOut = Wire(Vec(c.numOfSymbBm, (Vec(c.T_LEN+1, UInt(c.SYMB_WIDTH.W)))))
+  val stageOut = Wire(Vec(c.bmTermsPerCycle, (Vec(c.T_LEN+1, UInt(c.SYMB_WIDTH.W)))))
   val errLocVldStage = shiftMod.io.vecOut.bits.map(_.eop)
 
   errLocVldQ := errLocVldStage.reduce(_||_) && shiftMod.io.lastOut
@@ -78,16 +83,16 @@ class RsBm(c: Config) extends Module {
       }
     }
   }.otherwise {
-    //errLocQ := rsBmStage(c.numOfSymbBm-1).io.errLocOut
-    auxBQ := rsBmStage(c.numOfSymbBm-1).io.auxBOut
-    errLocLenQ := rsBmStage(c.numOfSymbBm-1).io.errLocLenOut
+    //errLocQ := rsBmStage(c.bmTermsPerCycle-1).io.errLocOut
+    auxBQ := rsBmStage(c.bmTermsPerCycle-1).io.auxBOut
+    errLocLenQ := rsBmStage(c.bmTermsPerCycle-1).io.errLocLenOut
     when(shiftMod.io.lastOut) {
-      if(c.numOfSymbBm == 1)
-        errLocQ := stageOut(c.numOfSymbBm-1)
+      if(c.bmTermsPerCycle == 1)
+        errLocQ := stageOut(c.bmTermsPerCycle-1)
       else
         errLocQ := Mux1H(errLocVldStage, stageOut)
     }.otherwise {
-        errLocQ := stageOut(c.numOfSymbBm-1)
+        errLocQ := stageOut(c.bmTermsPerCycle-1)
     }
   }
 
@@ -95,7 +100,7 @@ class RsBm(c: Config) extends Module {
   // Combo stage
   ///////////////////////////
 
-  val errLocLenVec = Reg(Vec(c.numOfSymbBm, UInt(lenWidth.W)))
+  val errLocLenVec = Reg(Vec(c.bmTermsPerCycle, UInt(lenWidth.W)))
 
   rsBmStage(0).io.iterI       := shiftMod.io.vecOut.bits(0).iterI
   rsBmStage(0).io.syndInvIn   := shiftMod.io.vecOut.bits(0).syndInv
@@ -105,8 +110,8 @@ class RsBm(c: Config) extends Module {
   stageOut(0) := rsBmStage(0).io.errLocOut
   errLocLenVec(0) := errLocLenQ
 
-  if(c.numOfSymbBm > 1) {
-    for(i <- 1 until c.numOfSymbBm) {
+  if(c.bmTermsPerCycle > 1) {
+    for(i <- 1 until c.bmTermsPerCycle) {
       rsBmStage(i).io.iterI       := shiftMod.io.vecOut.bits(i).iterI
       rsBmStage(i).io.syndInvIn   := shiftMod.io.vecOut.bits(i).syndInv
       rsBmStage(i).io.errLocIn    := rsBmStage(i-1).io.errLocOut

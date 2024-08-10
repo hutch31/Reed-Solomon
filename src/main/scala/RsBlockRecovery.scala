@@ -75,8 +75,7 @@ class RsBlockRecovery(c: Config) extends Module {
   // Shift position value is less than current cntr value
   val shiftEnableVec = Wire(Vec(c.BUS_WIDTH, UInt(1.W)))
   val shiftVal = shiftEnableVec.reduce(_+&_)
-  dontTouch(shiftVal)
-
+  
   val errPosVecRev = VecInit(queueErrPos.io.deq.bits.vec.reverse)
   val errValVecRev = VecInit(queueErrVal.io.deq.bits.reverse)
 
@@ -109,8 +108,6 @@ class RsBlockRecovery(c: Config) extends Module {
 
   val mTdata = Wire(Vec(c.BUS_WIDTH, UInt(c.SYMB_WIDTH.W)))
   val mTkeep = Wire(UInt(c.BUS_WIDTH.W))
-
-  dontTouch(mTdata)
 
   mTdata := sQueue.io.deq.bits.tdata  
 

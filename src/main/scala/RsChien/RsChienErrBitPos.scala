@@ -13,7 +13,6 @@ class RsChienErrBitPos(c: Config) extends Module{
   })
   // Localparams
   val rootsNum = c.SYMB_NUM - 1
-  val numOfCycles = math.ceil(rootsNum/c.chienRootsPerCycle.toDouble).toInt
   val chienNonValid = ((1 << (rootsNum % c.chienRootsPerCycle)) -1)
 
   // TODO: Create the PolyEval depends on the input param
@@ -22,14 +21,14 @@ class RsChienErrBitPos(c: Config) extends Module{
   
   val roots = Wire(Valid(Vec(c.chienRootsPerCycle, UInt(c.SYMB_WIDTH.W))))
   
-  if(numOfCycles == 1) {
+  if(c.chienErrBitPosLatency == 1) {
     for(i <- 0 until c.chienRootsPerCycle) {
       roots.bits := c.alphaToSymb(i.U)
     }
     roots.valid := io.errLocIf.valid
   } else {
 
-    val cntrUpLimit = (numOfCycles-1)*c.chienRootsPerCycle
+    val cntrUpLimit = c.chienErrBitPosLatency*c.chienRootsPerCycle
     val cntr = RegInit(UInt(log2Ceil(rootsNum).W), 0.U)
 
     when(io.errLocIf.valid === 1.U) {
@@ -63,7 +62,6 @@ class RsChienErrBitPos(c: Config) extends Module{
 
   // We can use any Valid here, so take (0)
   val bitPosVld = polyEval(0).io.evalValue.valid
-  dontTouch(bitPosVld)
   val bitPosVldQ = RegNext(next=bitPosVld, init=false.B)
 
   val lastCycle = Wire(Bool())

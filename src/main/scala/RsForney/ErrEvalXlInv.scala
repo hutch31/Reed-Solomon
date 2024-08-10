@@ -10,15 +10,15 @@ class ErrEvalXlInv(c: Config) extends Module {
     val errEvalXlInvIf = Output(Valid(new vecFfsIf(c.T_LEN, c.SYMB_WIDTH)))
   })
 
-  val shiftVec = Module(new ShiftBundleMod(UInt(c.SYMB_WIDTH.W), c.T_LEN, c.numOfQStagesEeXl))
-  val stage = for(i <- 0 until c.numOfQStagesEeXl) yield Module(new ErrEvalXlInvStage(c))
-  val stageOut = Wire(Vec(c.numOfQStagesEeXl, Vec(c.T_LEN+1, UInt(c.SYMB_WIDTH.W))))
+  val shiftVec = Module(new ShiftBundleMod(UInt(c.SYMB_WIDTH.W), c.T_LEN, c.forneyEEXlInvTermsPerCycles))
+  val stage = for(i <- 0 until c.forneyEEXlInvTermsPerCycles) yield Module(new ErrEvalXlInvStage(c))
+  val stageOut = Wire(Vec(c.forneyEEXlInvTermsPerCycles, Vec(c.T_LEN+1, UInt(c.SYMB_WIDTH.W))))
 
   // Shift XlInvIf
   shiftVec.io.vecIn.bits  := io.XlInvIf.bits.vec
   shiftVec.io.vecIn.valid := io.errEvalIf.valid
 
-  for(i <- 0 until c.numOfQStagesEeXl) {
+  for(i <- 0 until c.forneyEEXlInvTermsPerCycles) {
     stage(i).io.vecIn.bits := io.errEvalIf.bits.vec
     stage(i).io.vecIn.valid := shiftVec.io.lastOut
     stage(i).io.XlInvSymb := shiftVec.io.vecOut.bits(i)
@@ -32,13 +32,10 @@ class ErrEvalXlInv(c: Config) extends Module {
   // The matrix fully loaded into accumMat when lastQ is asserted
   val lastQ = RegNext(stage(0).io.vecOut.valid)
 
-  val numOfCyclesEeXl = math.ceil(c.T_LEN/c.numOfStagesEeXl.toDouble).toInt
-  val accumMat = Module(new AccumMat(c.SYMB_WIDTH, c.T_LEN+1, c.numOfQStagesEeXl, numOfCyclesEeXl, c.T_LEN))
+  val accumMat = Module(new AccumMat(c.SYMB_WIDTH, c.T_LEN+1, c.forneyEEXlInvTermsPerCycles, c.forneyEEXlInvShiftLatency, c.T_LEN))
 
   accumMat.io.vecIn := stageOut
 
-  // Capture errEvalXlInvVec value
-  // TODO : what FFS to use. Do I need to pipeline it ?! Should ffs be pipelined ?
   val sel = io.XlInvIf.bits.ffs << 1
   val errEvalXlInvVec = Reg(Vec(c.T_LEN, UInt(c.SYMB_WIDTH.W)))
   val errEvalXlInvVld = RegNext(next=lastQ, 0.U)
@@ -67,17 +64,17 @@ class ErrEvalXlInvStage(c: Config) extends Module {
     val vecOut = Output(Valid(Vec(c.T_LEN+1, UInt(c.SYMB_WIDTH.W))))
   })
 
-  val qStage = Reg(Vec(c.numOfQStagesEeXl, (Vec(c.T_LEN+1, UInt(c.SYMB_WIDTH.W)))))
-  val comboStage = Wire(Vec(c.numOfQStagesEeXl, (Vec(c.T_LEN+1, UInt(c.SYMB_WIDTH.W)))))
+  val qStage = Reg(Vec(c.forneyEEXlInvQStages, (Vec(c.T_LEN+1, UInt(c.SYMB_WIDTH.W)))))
+  val comboStage = Wire(Vec(c.forneyEEXlInvQStages, (Vec(c.T_LEN+1, UInt(c.SYMB_WIDTH.W)))))
 
-  val qXlInvStage = Reg(Vec(c.numOfQStagesEeXl, UInt(c.SYMB_WIDTH.W)))
+  val qXlInvStage = Reg(Vec(c.forneyEEXlInvQStages, UInt(c.SYMB_WIDTH.W)))
 
-  io.vecOut.bits := qStage(c.numOfQStagesEeXl-1)
-  io.vecOut.valid := ShiftRegister(io.vecIn.valid, c.numOfQStagesEeXl, false.B, true.B)
+  io.vecOut.bits := qStage(c.forneyEEXlInvQStages-1)
+  io.vecOut.valid := ShiftRegister(io.vecIn.valid, c.forneyEEXlInvQStages, false.B, true.B)
 
-  for(i <- 0 until c.numOfQStagesEeXl) {
-    val start_indx = 1+i*c.numOfComboLenEeXl
-    val stop_indx = 1+c.numOfComboLenEeXl+i*c.numOfComboLenEeXl
+  for(i <- 0 until c.forneyEEXlInvQStages) {
+    val start_indx = 1+i*c.forneyEEXlInvComboLen
+    val stop_indx = 1+c.forneyEEXlInvComboLen+i*c.forneyEEXlInvComboLen
     val initStage = Wire(Vec(c.T_LEN+1, UInt(c.SYMB_WIDTH.W)))
     val initXlInv = Wire(UInt(c.SYMB_WIDTH.W))
 
