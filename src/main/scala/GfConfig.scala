@@ -22,8 +22,11 @@ case class Config(SYMB_WIDTH: Int, BUS_WIDTH: Int, POLY: Int, FCR: Int, N_LEN: I
 
   // bmTermsPerCycle - defines the number of syndrome terms BM can process in a cycle(calculated sequentially)
   val bmTermsPerCycle = 1
-  val bmLatency = math.ceil(REDUNDANCY/bmTermsPerCycle.toDouble).toInt
-  val bmLatencyFull = bmLatency + 2 // shiftBundle capture + shiftBundle shift + output reg
+  val bmStagePipeEn = true
+  val bmPipeMult = if(bmStagePipeEn) 2 else 1
+  val bmShiftLimit = if(bmStagePipeEn) 1 else 0
+  val bmShiftLatency = math.ceil(REDUNDANCY/bmTermsPerCycle.toDouble).toInt * bmPipeMult
+  val bmLatencyFull = bmShiftLatency + 2 // shiftBundle capture + shiftBundle shift + output reg
 
   //////////////////////////////
   // Chien search parameters:
@@ -65,7 +68,7 @@ case class Config(SYMB_WIDTH: Int, BUS_WIDTH: Int, POLY: Int, FCR: Int, N_LEN: I
   val forneyEEXlInvShiftLatency = math.ceil(T_LEN/forneyEEXlInvTermsPerCycles.toDouble).toInt
 
   // forneyEEXlInvComboLen - this parameter is used for pipelining the stage of ErrEvalXlInv block. This parameter determines after how many stages a register is inserted.
-  val forneyEEXlInvComboLen = 3
+  val forneyEEXlInvComboLen = 2
   require(forneyEEXlInvComboLen <= T_LEN-1, "ErrEvalXlInvStage combo length more than (T_LEN-1)")
   val forneyEEXlInvQStages = if(forneyEEXlInvComboLen == T_LEN-1) 1 else (T_LEN-1)/forneyEEXlInvComboLen+1
   val forneyEEXlInvShiftLatencyFull = forneyEEXlInvQStages + forneyEEXlInvShiftLatency + 2 // +1 accumVld +1 output reg
