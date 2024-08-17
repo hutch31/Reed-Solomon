@@ -64,7 +64,7 @@ class RsBm(c: Config) extends Module {
   val errLocQ = Reg(Vec(c.T_LEN+1, UInt(c.SYMB_WIDTH.W)))
   val errLocPiepEnQ = Reg(Vec(c.T_LEN+1, UInt(c.SYMB_WIDTH.W)))
 
-  val errLocVldQ = RegInit(Bool(), 0.U)
+  val errLocVldQ = RegInit(Bool(), false.B)
   val errLocLenQ = Reg(UInt(lenWidth.W))
   val auxBQ = Reg(Vec(c.T_LEN+1, UInt(c.SYMB_WIDTH.W)))
 
