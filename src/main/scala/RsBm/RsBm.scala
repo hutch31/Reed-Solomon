@@ -19,9 +19,9 @@ class RsBm(c: Config) extends Module {
   // Syndrome manipulation
   //
   // syndInvVec(0) = [synd(0),       0,       0,       0, 0, ... 0]
-  // syndInvVec(1) = [synd(1), symd(0),       0,       0, 0, ... 0]
-  // syndInvVec(2) = [synd(2), synd(1), symd(0),       0, 0, ... 0]
-  // syndInvVec(3) = [synd(3), synd(2), symd(1), synd(0), 0, ... 0]
+  // syndInvVec(1) = [synd(1), synd(0),       0,       0, 0, ... 0]
+  // syndInvVec(2) = [synd(2), synd(1), synd(0),       0, 0, ... 0]
+  // syndInvVec(3) = [synd(3), synd(2), synd(1), synd(0), 0, ... 0]
   ///////////////////////////
 
   for(rootIndx <- 0 until c.REDUNDANCY) {
@@ -37,7 +37,7 @@ class RsBm(c: Config) extends Module {
   // Shift 
   ///////////////////////////
 
-  val shiftMod = Module(new ShiftBundleMod(new ShiftUnit, c.REDUNDANCY, c.bmTermsPerCycle))
+  val shiftMod = Module(new ShiftBundleMod(new ShiftUnit, width=c.REDUNDANCY, shiftVal=c.bmTermsPerCycle, shiftCntrLimit=c.bmShiftLimit))
 
   class ShiftUnit extends Bundle {
     val syndInv = Vec(c.T_LEN+1, UInt(c.SYMB_WIDTH.W))
@@ -62,6 +62,8 @@ class RsBm(c: Config) extends Module {
   ///////////////////////////
 
   val errLocQ = Reg(Vec(c.T_LEN+1, UInt(c.SYMB_WIDTH.W)))
+  val errLocPiepEnQ = Reg(Vec(c.T_LEN+1, UInt(c.SYMB_WIDTH.W)))
+
   val errLocVldQ = RegInit(Bool(), 0.U)
   val errLocLenQ = Reg(UInt(lenWidth.W))
   val auxBQ = Reg(Vec(c.T_LEN+1, UInt(c.SYMB_WIDTH.W)))
@@ -69,7 +71,17 @@ class RsBm(c: Config) extends Module {
   val stageOut = Wire(Vec(c.bmTermsPerCycle, (Vec(c.T_LEN+1, UInt(c.SYMB_WIDTH.W)))))
   val errLocVldStage = shiftMod.io.vecOut.bits.map(_.eop)
 
-  errLocVldQ := errLocVldStage.reduce(_||_) && shiftMod.io.lastOut
+  val lastOutQ = RegNext(shiftMod.io.lastOut, false.B)
+  val lastOut = Wire(Bool())
+
+  // lastOut should be one cycle
+  if(c.bmStagePipeEn){
+    lastOut := ~lastOutQ & shiftMod.io.lastOut
+  }else{
+    lastOut := shiftMod.io.lastOut
+  }
+
+  errLocVldQ := errLocVldStage.reduce(_||_) && lastOut
 
   when(io.syndIf.valid) {
     errLocLenQ := 0.U
@@ -83,10 +95,9 @@ class RsBm(c: Config) extends Module {
       }
     }
   }.otherwise {
-    //errLocQ := rsBmStage(c.bmTermsPerCycle-1).io.errLocOut
     auxBQ := rsBmStage(c.bmTermsPerCycle-1).io.auxBOut
     errLocLenQ := rsBmStage(c.bmTermsPerCycle-1).io.errLocLenOut
-    when(shiftMod.io.lastOut) {
+    when(lastOut) {
       if(c.bmTermsPerCycle == 1)
         errLocQ := stageOut(c.bmTermsPerCycle-1)
       else
@@ -94,6 +105,10 @@ class RsBm(c: Config) extends Module {
     }.otherwise {
         errLocQ := stageOut(c.bmTermsPerCycle-1)
     }
+  }
+
+  when(lastOutQ & shiftMod.io.lastOut){
+    errLocPiepEnQ := stageOut(c.bmTermsPerCycle-1)
   }
 
   ///////////////////////////
@@ -117,18 +132,24 @@ class RsBm(c: Config) extends Module {
       rsBmStage(i).io.errLocIn    := rsBmStage(i-1).io.errLocOut
       rsBmStage(i).io.auxBIn      := rsBmStage(i-1).io.auxBOut
       rsBmStage(i).io.errLocLenIn := rsBmStage(i-1).io.errLocLenOut
-      stageOut(i)     := rsBmStage(i).io.errLocOut
-      errLocLenVec(i) := rsBmStage(i-1).io.errLocLenOut
+      stageOut(i)                 := rsBmStage(i).io.errLocOut
+      errLocLenVec(i)             := rsBmStage(i-1).io.errLocLenOut
     }
   }
 
   val ffs = Module(new FindFirstSetNew(width=c.T_LEN+1, lsbFirst=false))
   ffs.io.in := VecInit(errLocQ.map(x => x.orR)).asTypeOf(UInt((c.T_LEN+1).W))
-  // TODO: connect proper output
-  io.errLocIf.bits.vec := errLocQ
+
+  if(c.bmStagePipeEn) {
+    io.errLocIf.bits.vec := errLocPiepEnQ
+    io.errLocIf.valid := RegNext(errLocVldQ, init = 0.U)
+  } else {
+    io.errLocIf.bits.vec := errLocQ
+    io.errLocIf.valid := errLocVldQ
+  }
+
   io.errLocIf.bits.ffs := ffs.io.out
-  io.errLocIf.valid := errLocVldQ
-  
+
 }
 
 class RsBmStage(c: Config, lenWidth: Int) extends Module {
@@ -153,37 +174,56 @@ class RsBmStage(c: Config, lenWidth: Int) extends Module {
     }
   }
 
+  val errLocLenPipe = Wire(UInt(lenWidth.W))
+  val deltaPipe     = Wire(UInt(c.SYMB_WIDTH.W))
+  val BxXPipe       = Wire(Vec(c.T_LEN+1, UInt(c.SYMB_WIDTH.W)))
+  val errLocPipe    = Wire(Vec(c.T_LEN+1, UInt(c.SYMB_WIDTH.W)))
+  val auxBPipe      = Wire(Vec(c.T_LEN+1, UInt(c.SYMB_WIDTH.W)))
+
   val deltaIntrm = (syndInvVld zip io.errLocIn).map{case(a,b) => c.gfMult(a,b)}
-
-  //val delta = Reg(UInt(c.SYMB_WIDTH.W))
   val delta = deltaIntrm.reduce(_^_)
-  //delta := deltaIntrm.reduce(_^_)
-  val deltaInv = c.gfInv(delta)
-
   val BxX = c.gfPolyMultX(io.auxBIn)
 
-  val BxXxDelta = Wire(Vec(c.T_LEN+1, UInt(c.SYMB_WIDTH.W)))
-  BxXxDelta := (BxX).map(c.gfMult(_, delta))
+  // Pipelining BM stage
+  if(c.bmStagePipeEn) {
+    errLocLenPipe := RegNext(io.errLocLenIn)
+    deltaPipe     := RegNext(delta)
+    BxXPipe       := RegNext(BxX)
+    errLocPipe    := RegNext(io.errLocIn)
+    auxBPipe      := RegNext(io.auxBIn)
+  } else {
+    errLocLenPipe := io.errLocLenIn
+    deltaPipe     := delta 
+    BxXPipe       := BxX
+    errLocPipe    := io.errLocIn      
+    auxBPipe      := io.auxBIn
+  }
 
-  val errLocLenx2 = io.errLocLenIn << 1
+  val deltaInv = c.gfInv(deltaPipe)
+
+
+  val BxXxDelta = Wire(Vec(c.T_LEN+1, UInt(c.SYMB_WIDTH.W)))
+  BxXxDelta := BxXPipe.map(c.gfMult(_, deltaPipe))
+
+  val errLocLenx2 = errLocLenPipe << 1
 
   val errLocOut = Wire(Vec(c.T_LEN+1, UInt(c.SYMB_WIDTH.W)))
   val auxBOut = Wire(Vec(c.T_LEN+1, UInt(c.SYMB_WIDTH.W)))
   val errLocLenOut = Wire(UInt(lenWidth.W))
 
-  when(delta =/= 0.U) {
-    errLocOut := (io.errLocIn zip BxXxDelta).map{case(a,b) => a ^ b}
+  when(deltaPipe =/= 0.U) {
+    errLocOut := (errLocPipe zip BxXxDelta).map{case(a,b) => a ^ b}
     when(errLocLenx2 <= (io.iterI-1.U)) {
-      errLocLenOut := io.iterI - io.errLocLenIn
-      auxBOut := (io.errLocIn).map(c.gfMult(_, deltaInv))
+      errLocLenOut := io.iterI - errLocLenPipe
+      auxBOut := (errLocPipe).map(c.gfMult(_, deltaInv))
     }.otherwise{
-      errLocLenOut := io.errLocLenIn
-      auxBOut := c.gfPolyMultX(io.auxBIn)
+      errLocLenOut := errLocLenPipe
+      auxBOut := c.gfPolyMultX(auxBPipe)
     }
   }.otherwise{
-    errLocOut := io.errLocIn
-    errLocLenOut := io.errLocLenIn
-    auxBOut := c.gfPolyMultX(io.auxBIn)
+    errLocOut := errLocPipe
+    errLocLenOut := errLocLenPipe
+    auxBOut := c.gfPolyMultX(auxBPipe)
   }
 
   io.errLocOut := errLocOut
