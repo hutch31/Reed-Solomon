@@ -60,12 +60,25 @@ jobs:
 
     - name: Install Dependencies
       run: |
+        ls
         sudo apt-get update
         sudo apt-get install -y libunwind-dev
         sudo apt-get install -y git help2man perl make autoconf g++ flex libfl-dev bison ccache numactl perl-doc
-        flex -V
+
+    # Cache the Verilator build directory
+    - name: Cache Verilator
+      id: verilator-cache
+      uses: actions/cache@v2
+      with:
+        path: |      
+          /usr/local/share/verilator
+          /usr/local/bin/verilator
+        key: verilator-${{ runner.os }}-v5.022
+        restore-keys: |        
+          verilator-${{ runner.os }}-
         
     - name: Install Verilator
+      if: steps.verilator-cache.outputs.cache-hit != 'true'
       run: |
         git clone https://github.com/verilator/verilator.git  
         cd verilator  
@@ -88,5 +101,6 @@ jobs:
 
     - name: run sim
       run: |
+        ls
         cd coco_sim
         python3 rs_decoder.py -l RsBlockRecovery
