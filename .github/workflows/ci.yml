@@ -57,6 +57,14 @@ jobs:
     needs: build
     
     steps:
+
+    - name: Install Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y git help2man perl make autoconf g++ flex bison ccache libgoogle-perftools-dev numactl perl-doc
+        sudo apt-get clean
+        sudo rm -rf /var/lib/apt/lists/*
+        
     - name: Install Verilator
       run: |
         git clone https://github.com/verilator/verilator.git  
@@ -66,6 +74,7 @@ jobs:
         ./configure  
         make -j$(nproc)  
         make install
+        rm -rf verilator
 
     - name: Set up Python 3.10
       uses: actions/setup-python@v2
