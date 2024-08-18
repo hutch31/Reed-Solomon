@@ -62,7 +62,7 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y libunwind-dev
-        sudo apt-get install -y git help2man perl make autoconf g++ flex bison ccache numactl perl-doc
+        sudo apt-get install -y git help2man perl make autoconf g++ flex libfl-dev bison ccache numactl perl-doc
         flex -V
         
     - name: Install Verilator
