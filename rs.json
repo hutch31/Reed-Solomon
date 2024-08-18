@@ -1,6 +1,8 @@
 {
+    "AXIS_CLOCK" : 156.25,
+    "CORE_CLOCK" : 156.25,
     "SYMB_WIDTH" : 8,
-    "BUS_WIDTH" : 4,
+    "BUS_WIDTH" : 8,
     "POLY" : 285,
     "FCR" : 0,
     "N_LEN" : 255,
