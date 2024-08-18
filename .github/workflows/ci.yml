@@ -58,14 +58,14 @@ jobs:
     
     steps:
     - name: Install Verilator
-    run: |
-      git clone https://github.com/verilator/verilator.git  
-      cd verilator  
-      git checkout v5.022  
-      autoconf  
-      ./configure  
-      make -j$(nproc)  
-      make install
+      run: |
+        git clone https://github.com/verilator/verilator.git  
+        cd verilator  
+        git checkout v5.022  
+        autoconf  
+        ./configure  
+        make -j$(nproc)  
+        make install
 
     - name: Set up Python 3.10
       uses: actions/setup-python@v2
