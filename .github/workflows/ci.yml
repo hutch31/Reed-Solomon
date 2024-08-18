@@ -50,7 +50,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: RsBlockRecovery.sv
-        path: .
+        path: ./RsBlockRecovery.sv
 
   coco_sim:
     runs-on: ubuntu-latest
