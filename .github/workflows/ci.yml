@@ -50,7 +50,6 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: RsBlockRecovery.sv
-        path: ./
 
   coco_sim:
     runs-on: ubuntu-latest
@@ -67,8 +66,7 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         name: RsBlockRecovery.sv
-        path: ./
-
+        
     - name: Check dir
       run: ls -R
         
