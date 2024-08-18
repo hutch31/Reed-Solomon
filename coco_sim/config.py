@@ -35,12 +35,21 @@ BUS_WIDTH = ip_params['BUS_WIDTH']
 POLY = ip_params['POLY']
 ENCODE_MSG_DURATION = math.ceil(N_LEN/BUS_WIDTH)
 FCR = ip_params['FCR']
-
+AXIS_CLOCK = ip_params['AXIS_CLOCK']
+CORE_CLOCK = ip_params['CORE_CLOCK']
+if AXIS_CLOCK/CORE_CLOCK == 1.0:
+    SINGLE_CLOCK = True
+else:
+    SINGLE_CLOCK = False
+    
 print(f"PRJ_DIR : {PRJ_DIR}")
 print("\n")
 print("================")
 print("RS CONFIGURATION")
 print("================")
+print(f"\t AXIS_CLOCK = {AXIS_CLOCK}")
+print(f"\t CORE_CLOCK = {CORE_CLOCK}")
+print(f"\t SINGLE_CLOCK = {SINGLE_CLOCK}")
 print(f"\t POLY  = {POLY}")
 print(f"\t N_LEN = {N_LEN}")
 print(f"\t K_LEN = {K_LEN}")

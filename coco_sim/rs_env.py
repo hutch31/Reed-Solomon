@@ -15,6 +15,9 @@ from axis import AxisResponder
 from axis import AxisMonitor
 
 from config import ENCODE_MSG_DURATION
+from config import SINGLE_CLOCK
+from config import AXIS_CLOCK
+from config import CORE_CLOCK
 
 class RsEnv():
     
@@ -42,9 +45,14 @@ class RsEnv():
     
     async def run(self):
         await cocotb.start(reset_dut(self.dut.reset,200,1))
-        await Timer(50, units = "ns")
-        
-        await cocotb.start(custom_clock(self.dut.clock, 10))
+        if not SINGLE_CLOCK:
+            await cocotb.start(reset_dut(self.dut.io_coreRst,200,1))
+            
+        await Timer(50, units = "ns")        
+        await cocotb.start(custom_clock(self.dut.clock, 1000/AXIS_CLOCK))
+        if not SINGLE_CLOCK:
+            await cocotb.start(custom_clock(self.dut.io_coreClock, 1000/CORE_CLOCK))
+            
         for m_mon in self.m_monitors:
             await cocotb.start(m_mon.mon_if())
         
@@ -59,10 +67,9 @@ class RsEnv():
                 s_coroutings.append(cocotb.start_soon(with_timeout(self.s_drivers[i].send_pkt(self.s_if_containers[i].if_packets[pkt_num]), 10_000, 'us')))
             for corouting in s_coroutings:
                 await Join(corouting)
-            for i in range(ENCODE_MSG_DURATION):
-                await RisingEdge(self.dut.clock)
                 
-        for i in range(ENCODE_MSG_DURATION+100):
+        # TODO: add delay based on latency
+        for i in range(ENCODE_MSG_DURATION+400):
             await RisingEdge(self.dut.clock)
             
         #await watchdog_set(self.dut.clock, self.comparators)
