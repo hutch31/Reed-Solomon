@@ -47,7 +47,7 @@ jobs:
       run: sbt "runMain Rs.GenRsBlockRecovery"
       
     - name: Upload RsBlockRecovery.sv
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         name: RsBlockRecovery.sv
         path: ./RsBlockRecovery.sv
@@ -64,10 +64,11 @@ jobs:
         submodules: true
 
     - name: Download artifact
-      uses: actions/download-artifact@v2
+      uses: actions/download-artifact@v4
       with:
         name: RsBlockRecovery.sv
         path: ./RsBlockRecovery.sv
+      run: ls -R
         
     - name: Install Dependencies
       run: |
