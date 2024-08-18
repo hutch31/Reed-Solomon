@@ -47,9 +47,9 @@ class ErrVal(c: Config) extends Module {
   }
 
   // Map outputs
-  val formDerShift = shiftMod.io.vecOut.bits.map(_.formDerSymb)
-  val errEvalXlInvShift = shiftMod.io.vecOut.bits.map(_.errEvalXlInvSymb)
-  val XlShift = shiftMod.io.vecOut.bits.map(_.XlSymb)
+  val formDerShift = VecInit(shiftMod.io.vecOut.bits.map(_.formDerSymb))
+  val errEvalXlInvShift = VecInit(shiftMod.io.vecOut.bits.map(_.errEvalXlInvSymb))
+  val XlShift = VecInit(shiftMod.io.vecOut.bits.map(_.XlSymb))
 
   ///////////////////////////
   // Combo Stage
@@ -57,7 +57,7 @@ class ErrVal(c: Config) extends Module {
 
   val errEvalXlInvAdj = Wire(Vec(c.forneyEvTermsPerCycle, UInt(c.SYMB_WIDTH.W)))
   val errValStageOut = Wire(Vec(c.forneyEvTermsPerCycle, UInt(c.SYMB_WIDTH.W)))
-  
+
   for(i <- 0 until c.forneyEvTermsPerCycle) {
     errEvalXlInvAdj(i) := c.gfMult(errEvalXlInvShift(i), XlShift(i))
     errValStageOut(i) := c.gfDiv(errEvalXlInvAdj(i), formDerShift(i))
@@ -74,10 +74,12 @@ class ErrVal(c: Config) extends Module {
   val errValVec = Wire(Vec(c.T_LEN, UInt(c.SYMB_WIDTH.W)))
 
   for(i <- 0 until c.forneyEvShiftLatency) {
-    if(i == 0)
-      errValAccumVec(c.forneyEvShiftLatency-1) := errValStageOut
-    else
-      errValAccumVec(c.forneyEvShiftLatency-1-i) := errValAccumVec(c.forneyEvShiftLatency-i)
+    when(shiftMod.io.vecOut.valid){
+      if(i == 0)
+        errValAccumVec(c.forneyEvShiftLatency-1) := errValStageOut
+      else
+        errValAccumVec(c.forneyEvShiftLatency-1-i) := errValAccumVec(c.forneyEvShiftLatency-i)
+    }
     for(k <- 0 until c.forneyEvTermsPerCycle) {
       if(i*c.forneyEvShiftLatency+k < c.T_LEN)
         errValVec(i*c.forneyEvShiftLatency+k) := errValAccumVec(i)(k)
