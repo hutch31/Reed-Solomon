@@ -12,23 +12,73 @@ class RsDecoder(c: Config) extends Module {
     val chienErrDetect = Output(Bool())
     val msgCorrupted = Output(Bool())
     val syndValid = Output(Bool())
+    val coreClock = Input(Clock())
+    val coreRst = Input(Bool())
   })
 
   val rsSynd = Module(new RsSynd(c))
+  rsSynd.io.sAxisIf <> io.sAxisIf
+
+  // rsBm/rsChien/rsForney are connected to the coreClock/coreRst
   val rsBm = Module(new RsBm(c))
   val rsChien = Module(new RsChien(c))
   val rsForney = Module(new RsForney(c))
+  rsBm.clock := io.coreClock
+  rsBm.reset := io.coreRst
+  rsChien.clock := io.coreClock
+  rsChien.reset := io.coreRst
+  rsForney.clock := io.coreClock
+  rsForney.reset := io.coreRst
 
-  rsSynd.io.sAxisIf <> io.sAxisIf
-  rsBm.io.syndIf <> rsSynd.io.syndIf
+  // If there are two clock domains then use toggle synchronizer
+  // to sync syndIf.valid signal
+  if(c.decoderSingleClock) {
+    rsBm.io.syndIf <> rsSynd.io.syndIf
+    rsForney.io.syndIf.bits := rsSynd.io.syndIf.bits
+    rsForney.io.syndIf.valid := rsSynd.io.syndIf.valid
+  } else {    
+    val toggleSyndSyncr = Module(new ToggleSyncr())
+    toggleSyndSyncr.clock := clock
+    toggleSyndSyncr.reset := reset
+    toggleSyndSyncr.io.in    := rsSynd.io.syndIf.valid
+    toggleSyndSyncr.io.outClk := io.coreClock
+    toggleSyndSyncr.io.outRst := io.coreRst
+
+    rsBm.io.syndIf.bits := rsSynd.io.syndIf.bits
+    rsBm.io.syndIf.valid := toggleSyndSyncr.io.out
+    rsForney.io.syndIf.bits := rsSynd.io.syndIf.bits
+    rsForney.io.syndIf.valid := toggleSyndSyncr.io.out
+  }
+
+  // Connect rsBm/rsChien/rsForney interfaces
   rsChien.io.errLocIf <> rsBm.io.errLocIf
   rsForney.io.errPosIf <> rsChien.io.errPosIf
-  rsForney.io.syndIf.bits := rsSynd.io.syndIf.bits //.reverse
-  rsForney.io.syndIf.valid := rsSynd.io.syndIf.valid
 
   io.chienErrDetect <> rsChien.io.chienErrDetect
-  io.errPosIf <> rsChien.io.errPosIf
-  io.errValIf <> rsForney.io.errValIf
+  if(c.decoderSingleClock){
+    io.errPosIf <> rsChien.io.errPosIf
+    io.errValIf <> rsForney.io.errValIf
+  } else {
+    val togglePosSyncr = Module(new ToggleSyncr())
+    togglePosSyncr.clock := io.coreClock
+    togglePosSyncr.reset := io.coreRst
+    togglePosSyncr.io.in    := rsChien.io.errPosIf.valid
+    togglePosSyncr.io.outClk := clock
+    togglePosSyncr.io.outRst := reset
+
+    io.errPosIf.bits := rsChien.io.errPosIf.bits
+    io.errPosIf.valid := togglePosSyncr.io.out
+
+    val toggleValSyncr = Module(new ToggleSyncr())
+    toggleValSyncr.clock := io.coreClock
+    toggleValSyncr.reset := io.coreRst
+    toggleValSyncr.io.in    := rsForney.io.errValIf.valid
+    toggleValSyncr.io.outClk := clock
+    toggleValSyncr.io.outRst := reset
+
+    io.errValIf.bits := rsForney.io.errValIf.bits
+    io.errValIf.valid := toggleValSyncr.io.out
+  }
 
   // if the syndrome is not zero then block corrupted
   io.msgCorrupted := rsSynd.io.syndIf.bits.reduce(_|_).orR

@@ -9,11 +9,17 @@ class RsBlockRecovery(c: Config) extends Module {
     val sAxisIf = Input(Valid(new axisIf(c.BUS_WIDTH, c.SYMB_WIDTH)))
     val mAxisIf = Output(Valid(new axisIf(c.BUS_WIDTH, c.SYMB_WIDTH)))
     val fifoFull = Output(UInt(1.W))
+    val coreClock = if(c.decoderSingleClock) None else Some(Input(Clock()))
+    val coreRst = if(c.decoderSingleClock) None else Some(Input(Bool()))
   })
 
   // Instance RsDecoder
   val rsDecoder = Module(new RsDecoder(c))
   rsDecoder.io.sAxisIf <> io.sAxisIf
+
+  rsDecoder.io.coreClock := io.coreClock.getOrElse(clock)
+  rsDecoder.io.coreRst := io.coreRst.getOrElse(reset)
+  
   val goodMsg = ~rsDecoder.io.msgCorrupted & rsDecoder.io.syndValid
   val startMsg = Wire(Bool())
 
