@@ -68,6 +68,8 @@ jobs:
       with:
         name: RsBlockRecovery.sv
         path: ./RsBlockRecovery.sv
+
+    - name: Check dir
       run: ls -R
         
     - name: Install Dependencies
