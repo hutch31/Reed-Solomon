@@ -100,7 +100,6 @@ jobs:
         pip install reedsolo
 
     - name: run sim
+      working-directory: ./coco_sim
       run: |
-        ls
-        cd coco_sim
         python3 rs_decoder.py -l RsBlockRecovery
