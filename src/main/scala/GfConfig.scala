@@ -7,14 +7,17 @@ import scala.math.floor
 import play.api.libs.json._
 import scala.io.Source
 
-case class JsonConfig(SYMB_WIDTH: Int, BUS_WIDTH: Int, POLY: Int, FCR: Int, N_LEN: Int, K_LEN: Int)
+case class JsonConfig(AXIS_CLOCK:Double, CORE_CLOCK:Double, SYMB_WIDTH: Int, BUS_WIDTH: Int, POLY: Int, FCR: Int, N_LEN: Int, K_LEN: Int)
 
-case class Config(SYMB_WIDTH: Int, BUS_WIDTH: Int, POLY: Int, FCR: Int, N_LEN: Int, K_LEN: Int, REDUNDANCY: Int, T_LEN: Int) {
+case class Config(AXIS_CLOCK:Double, CORE_CLOCK:Double, SYMB_WIDTH: Int, BUS_WIDTH: Int, POLY: Int, FCR: Int, N_LEN: Int, K_LEN: Int, REDUNDANCY: Int, T_LEN: Int) {
 
   val SYMB_NUM = 1 << SYMB_WIDTH
   val FIELD_CHAR = SYMB_NUM-1
   val FIRST_ROOT_POWER = 1
   val MSG_DURATION = N_LEN/BUS_WIDTH
+
+  val CLOCK_RATION = (AXIS_CLOCK/CORE_CLOCK).toDouble
+  val decoderSingleClock = if(CLOCK_RATION == 1.0) true else false
 
   //////////////////////////////
   // Berlekamp Massey Parameters
@@ -22,7 +25,7 @@ case class Config(SYMB_WIDTH: Int, BUS_WIDTH: Int, POLY: Int, FCR: Int, N_LEN: I
 
   // bmTermsPerCycle - defines the number of syndrome terms BM can process in a cycle(calculated sequentially)
   val bmTermsPerCycle = 1
-  val bmStagePipeEn = true
+  val bmStagePipeEn = false
   val bmPipeMult = if(bmStagePipeEn) 2 else 1
   val bmShiftLimit = if(bmStagePipeEn) 1 else 0
   val bmShiftLatency = math.ceil(REDUNDANCY/bmTermsPerCycle.toDouble).toInt * bmPipeMult
@@ -91,20 +94,29 @@ case class Config(SYMB_WIDTH: Int, BUS_WIDTH: Int, POLY: Int, FCR: Int, N_LEN: I
 
   val decoderLatencyFull = bmLatencyFull + chienErrBitPosLatencyFull + chienBitPosLatencyFull + forneyErrataLocLatencyFull + forneyErrEvalLatencyFull + forneyEEXlInvShiftLatencyFull + forneyFdFullLatency + forneyEvFullLatency
 
-  val msgNum = math.ceil((MSG_DURATION + decoderLatencyFull)/MSG_DURATION.toDouble).toInt + 1 // +1 to make sure it's enough
+  // Eval latency relative to AXIS clock
+  val decoderLatencyFullAxisClk = decoderLatencyFull * CLOCK_RATION
+
+  val msgNum = math.ceil((MSG_DURATION + decoderLatencyFullAxisClk)/MSG_DURATION.toDouble).toInt + 1 // +1 to make sure it's enough
 
   // If the latency in between RsSyndrome output and ErrEval block > MSG_DURATION,
   // then syndrome value will be updated before it's used in ErrEval block.
   // In this case syndrome FIFO inserted in the Forney block.
   val syndErrEvalLatency = bmLatencyFull + chienLatencyFull + forneyErrataLocLatencyFull + forneyErrEvalLatencyFull
-  val forneySyndFifoEn = if(syndErrEvalLatency > MSG_DURATION) true else false
-  val forneySyndFifoDepth = math.ceil(syndErrEvalLatency/MSG_DURATION.toDouble).toInt
+  val syndErrEvalLatencyAxisClk = syndErrEvalLatency * CLOCK_RATION
 
+  val forneySyndFifoEn = if(syndErrEvalLatencyAxisClk > MSG_DURATION || !decoderSingleClock) true else false
+  val forneySyndFifoDepth = math.ceil(syndErrEvalLatencyAxisClk/MSG_DURATION.toDouble).toInt+1 // +1 to make sure it's enough
+
+  println(s"AXIS_CLOCK = $AXIS_CLOCK")
+  println(s"CORE_CLOCK = $CORE_CLOCK")
+  println(s"CLOCK_RATION = $CLOCK_RATION")
+  println(s"decoderSingleClock = $decoderSingleClock")
   println(s"Message duration = $MSG_DURATION")
   println(s"BM latency       = $bmLatencyFull")
   println(s"Chien latency    = $chienLatencyFull")
   println(s"Decoder latency  = $decoderLatencyFull")
-  println(s"syndErrEvalLatency = $syndErrEvalLatency")
+  println(s"RsSynd(Out) -> ErrEval(In) Latency = $syndErrEvalLatency")
   if(forneySyndFifoEn)
     println(s"Syndrome FIFO enabled in forney block")
   println(s"FIFO should store $msgNum messages.")
@@ -259,7 +271,7 @@ object Config {
   def apply(jsonConfig: JsonConfig): Config = {
     val REDUNDANCY = jsonConfig.N_LEN - jsonConfig.K_LEN
     val T_LEN = REDUNDANCY/2
-    Config(jsonConfig.SYMB_WIDTH, jsonConfig.BUS_WIDTH, jsonConfig.POLY, jsonConfig.FCR, jsonConfig.N_LEN, jsonConfig.K_LEN, REDUNDANCY, T_LEN)
+    Config(jsonConfig.AXIS_CLOCK, jsonConfig.CORE_CLOCK, jsonConfig.SYMB_WIDTH, jsonConfig.BUS_WIDTH, jsonConfig.POLY, jsonConfig.FCR, jsonConfig.N_LEN, jsonConfig.K_LEN, REDUNDANCY, T_LEN)
   }
 }
 
