@@ -96,7 +96,7 @@ def get_if(top_level):
         raise ValueError(f"Not expected value for top_level = {top_level}")
     return s_if, m_if
 
-async def decoder_test(dut, error_type, pkt_num = 1):
+async def decoder_test(dut, error_type, pkt_num = 1, flow_ctrl='always_on'):
     
     s_if_containers = []
     m_if_containers = []
@@ -118,7 +118,7 @@ async def decoder_test(dut, error_type, pkt_num = 1):
         if_container.if_ptr = if_builder.get_if(if_name)
         m_if_containers.append(if_container)        
     # Generate packets
-    pkt_builder = RsPacketsBuilder(K_LEN, REDUNDANCY, FCR, 'increment')
+    pkt_builder = RsPacketsBuilder(K_LEN, REDUNDANCY, FCR)
     for i in range(pkt_num):
         err_num = T_LEN
         err_pos = err_builder.generate_error(error_type)
@@ -135,10 +135,9 @@ async def decoder_test(dut, error_type, pkt_num = 1):
                 mon_pkt.print_pkt()
                 m_if_containers[i].if_packets.append(mon_pkt)
             
-            
     # Build environment
     env = RsEnv(dut)
-    env.build_env(s_if_containers, m_if_containers)
+    env.build_env(s_if_containers, m_if_containers, flow_ctrl)
     await env.run()
     env.post_run()
     
@@ -146,6 +145,10 @@ async def decoder_test(dut, error_type, pkt_num = 1):
 async def random_error_test(dut):
     await decoder_test(dut, 'random_error', 25)
 
+@cocotb.test()
+async def flow_cntr_enable_test(dut):
+    await decoder_test(dut, 'random_error', 25, 'flow_en')
+    
 @cocotb.test()
 async def cover_all_errors_test(dut):
     await decoder_test(dut, 'cover_all_errors', T_LEN)

@@ -27,12 +27,12 @@ class RsEnv():
         self.comparators = []
         self.dut = dut
     
-    def build_env(self, s_if_containers, m_if_containers):
+    def build_env(self, s_if_containers, m_if_containers, flow_ctrl = 'always_on'):
         self.s_if_containers = s_if_containers
         self.m_if_containers = m_if_containers
         for i in range (len(self.s_if_containers)):
             self.s_drivers.append(AxisDriver(name=f's_drv{i}',
-                                             axis_if=self.s_if_containers[i].if_ptr))
+                                             axis_if=self.s_if_containers[i].if_ptr, flow_ctrl=flow_ctrl))
         for i in range (len(self.m_if_containers)):
             self.comparators.append(Comparator(name=f'comp_{self.m_if_containers[i].if_name}'))
             
