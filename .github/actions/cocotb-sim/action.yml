@@ -4,6 +4,7 @@ runs:
   using: "composite"
   steps:
     - name: Install Dependencies
+      shell: bash      
       run: |
         ls
         sudo apt-get update
@@ -11,7 +12,7 @@ runs:
         sudo apt-get install -y git help2man perl make autoconf g++ flex libfl-dev bison ccache numactl perl-doc
 
     - name: Install Verilator
-      if: steps.verilator-cache.outputs.cache-hit != 'true'
+      shell: bash
       run: |
         git clone https://github.com/verilator/verilator.git  
         cd verilator  
@@ -28,11 +29,13 @@ runs:
         python-version: '3.10'
 
     - name: Install Python packages
+      shell: bash
       run: |
         pip install cocotb==1.8.1
         pip install reedsolo
 
     - name: run sim
+      shell: bash
       working-directory: ./coco_sim
       run: |
         python3 rs_decoder.py -l RsBlockRecovery
