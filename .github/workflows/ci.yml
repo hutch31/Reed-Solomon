@@ -25,11 +25,12 @@ jobs:
     - name: build
       uses: ./.github/actions/chisel-build
       with:
-        axis_clock: '100.0'
-        core_clock: '200.0'
+        axis_clock: '156.25'
+        core_clock: '125.00'
         symb_width: '8'
-        bus_width: '32'
+        bus_width: ${{ matrix.bus-width}}
         poly: '285'
+        fcr: '0'
         n_len: '255'
         k_len: '239'
 
