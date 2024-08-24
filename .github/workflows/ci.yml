@@ -9,8 +9,7 @@ on:
       - main
 
 jobs:
-
-  dec_poly285_n255_k239:    
+  dec_p285_n255_k239:    
     runs-on: ubuntu-latest
     
     strategy:
@@ -18,7 +17,7 @@ jobs:
         bus-width: [4, 8]
         
     steps:
-      -name: build
+    - name: build
       uses: ./.github/actions/chisel-build
       with:
         axis_clock: '100.0'
@@ -29,5 +28,5 @@ jobs:
         n_len: '255'
         k_len: '239'
 
-      -name: coco-sim
+    - name: coco-sim
       uses: ./.github/actions/cocotb-sim
