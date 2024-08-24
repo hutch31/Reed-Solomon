@@ -13,6 +13,7 @@ lazy val root = (project in file("."))
       "com.typesafe.play" %% "play-json" % "2.9.2",
       "org.chipsalliance" %% "chisel" % chiselVersion,
       "org.scalatest" %% "scalatest" % "3.2.16" % "test",
+      "com.github.scopt" %% "scopt" % "4.0.1",
     ),
     scalacOptions ++= Seq(
       "-language:reflectiveCalls",

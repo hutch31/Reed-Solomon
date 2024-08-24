@@ -137,8 +137,17 @@ class RsBlockRecovery(c: Config) extends Module {
 
 // runMain Rs.GenRsBlockRecovery
 object GenRsBlockRecovery extends App {
+
   val projectRoot = System.getProperty("project.root")
-  val c = JsonReader.readConfig(projectRoot + "/rs.json")
-  ChiselStage.emitSystemVerilogFile(new RsBlockRecovery(c), Array())
+
+  ConfigParser.parse(args) match {
+    case Some(config) =>
+      JsonWriter.writeToFile(config, "rs.json")
+      val c = Config(config)
+      //val c = JsonReader.readConfig(projectRoot + "/rs.json")
+      ChiselStage.emitSystemVerilogFile(new RsBlockRecovery(c), Array())
+    case None =>
+      sys.exit(1)      
+  }  
 }
 

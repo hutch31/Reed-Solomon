@@ -7,8 +7,6 @@ import scala.math.floor
 import play.api.libs.json._
 import scala.io.Source
 
-case class JsonConfig(AXIS_CLOCK:Double, CORE_CLOCK:Double, SYMB_WIDTH: Int, BUS_WIDTH: Int, POLY: Int, FCR: Int, N_LEN: Int, K_LEN: Int)
-
 case class Config(AXIS_CLOCK:Double, CORE_CLOCK:Double, SYMB_WIDTH: Int, BUS_WIDTH: Int, POLY: Int, FCR: Int, N_LEN: Int, K_LEN: Int, REDUNDANCY: Int, T_LEN: Int) {
 
   val SYMB_NUM = 1 << SYMB_WIDTH
