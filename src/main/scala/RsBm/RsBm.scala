@@ -107,8 +107,14 @@ class RsBm(c: Config) extends Module {
     }
   }
 
-  when(lastOutQ & shiftMod.io.lastOut){
-    errLocPiepEnQ := stageOut(c.bmTermsPerCycle-1)
+  if(c.bmStagePipeEn){
+    when(lastOutQ & shiftMod.io.lastOut){
+      errLocPiepEnQ := stageOut(c.bmTermsPerCycle-1)
+    }
+  } else {
+     when(lastOut){
+       errLocPiepEnQ := stageOut(c.bmTermsPerCycle-1)
+    }
   }
 
   ///////////////////////////
@@ -144,7 +150,7 @@ class RsBm(c: Config) extends Module {
     io.errLocIf.bits.vec := errLocPiepEnQ
     io.errLocIf.valid := RegNext(errLocVldQ, init = 0.U)
   } else {
-    io.errLocIf.bits.vec := errLocQ
+    io.errLocIf.bits.vec := errLocPiepEnQ
     io.errLocIf.valid := errLocVldQ
   }
 
