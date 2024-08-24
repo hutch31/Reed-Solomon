@@ -17,6 +17,11 @@ jobs:
         bus-width: [4, 8]
         
     steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      with:
+        submodules: true
+      
     - name: build
       uses: ./.github/actions/chisel-build
       with:

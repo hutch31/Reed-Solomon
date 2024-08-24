@@ -28,10 +28,6 @@ inputs:
 runs:
   using: "composite"
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
-      with:
-        submodules: true
 
     - name: Set up JDK 11
       uses: actions/setup-java@v3
