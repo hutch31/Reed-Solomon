@@ -44,13 +44,15 @@ jobs:
       run: sbt compile
       
     - name: Generate Verilog
-      run: sbt "runMain Rs.GenRsBlockRecovery"
+      run: sbt "runMain Rs.GenRsBlockRecovery --axis-clock 156.25 --core-clock 125.00 --symb-width 8 --bus-width 8 --poly 285 --fcr 0 --n-len 255 --k-len 239"
       
     - name: Upload RsBlockRecovery.sv
       uses: actions/upload-artifact@v4
       with:
-        name: RsBlockRecovery.sv
-        path: ./RsBlockRecovery.sv
+        name: design-artifacts
+        path: |
+          ./RsBlockRecovery.sv
+          ./rs.json
 
   coco_sim:
     runs-on: ubuntu-latest
@@ -66,7 +68,7 @@ jobs:
     - name: Download artifact
       uses: actions/download-artifact@v4
       with:
-        name: RsBlockRecovery.sv
+        name: design-artifacts
         path: .
 
     - name: Check dir
