@@ -1,0 +1,57 @@
+name: 'Build RS decoder'
+description: 'Runs the Chisel build flow with specific RS decoder configurations.'
+inputs:
+  axis_clock:
+    description: 'Clock frequency for AXIS'
+    required: true
+  core_clock:
+    description: 'Clock frequency for CORE'
+    required: true
+  symb_width:
+    description: 'Symbol width'
+    required: true
+  bus_width:
+    description: 'Bus width'
+    required: true
+  poly:
+    description: 'Polynomial value'
+    required: true
+  fcr:
+    description: 'First consecutive root'
+    required: true    
+  n_len:
+    description: 'N length'
+    required: true
+  k_len:
+    description: 'K length'
+    required: true
+runs:
+  using: "composite"
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      with:
+        submodules: true
+
+    - name: Set up JDK 11
+      uses: actions/setup-java@v3
+      with:
+        java-version: '11'
+        distribution: 'adopt'
+
+    - name: Set up Scala
+      uses: olafurpg/setup-scala@v13
+      with:
+        java-version: '11'
+
+    - name: Set up sbt
+      uses: olafurpg/setup-scala@v13
+      with:
+        sbt-version: '1.5.5'
+
+    - name: Build Chisel project
+      run: sbt compile
+
+    - name: Run Chisel Build
+      run: |
+        sbt "runMain Rs.GenRsBlockRecovery --axis-clock ${{ inputs.axis_clock }} --core-clock ${{ inputs.core_clock }} --symb-width ${{ inputs.symb_width }} --bus-width ${{ inputs.bus_width }} --poly ${{ inputs.poly }} --n-len ${{ inputs.n_len }} --k-len ${{ inputs.k_len }}"
