@@ -17,7 +17,7 @@ class ErrVal(c: Config) extends Module {
 
   val XlAdj = Wire(Vec(c.T_LEN, UInt(c.SYMB_WIDTH.W)))
   for(i <- 0 until c.T_LEN) {
-    if(c.FIRST_ROOT_POWER == 1) {
+    if(c.FCR_SYMB == 1) {
       XlAdj := io.Xl
     } else {
       for(i <- 0 until c.T_LEN){

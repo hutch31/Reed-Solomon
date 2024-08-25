@@ -11,7 +11,6 @@ case class Config(AXIS_CLOCK:Double, CORE_CLOCK:Double, SYMB_WIDTH: Int, BUS_WID
 
   val SYMB_NUM = 1 << SYMB_WIDTH
   val FIELD_CHAR = SYMB_NUM-1
-  val FIRST_ROOT_POWER = 1
   val MSG_DURATION = N_LEN/BUS_WIDTH
 
   val CLOCK_RATION = (AXIS_CLOCK/CORE_CLOCK).toDouble
@@ -119,10 +118,16 @@ case class Config(AXIS_CLOCK:Double, CORE_CLOCK:Double, SYMB_WIDTH: Int, BUS_WID
     println(s"Syndrome FIFO enabled in forney block")
   println(s"FIFO should store $msgNum messages.")
 
-
   //////////////////////////////
   // GF arithmetic
   //////////////////////////////
+
+  /////////////////////////////
+  // The table maps powers of the primitive element ("alpha")
+  // to their corresponding symbol values:
+  // alpha_to_symb[0] = alpha ^ 0 = 1
+  // alpha_to_symb[1] = alpha ^ 1 = 2
+  /////////////////////////////
 
   def genAlphaToSymb() : Seq[Int] = {
     val alpha_to_symb = new ArrayBuffer[Int](1 << SYMB_WIDTH)
@@ -132,11 +137,14 @@ case class Config(AXIS_CLOCK:Double, CORE_CLOCK:Double, SYMB_WIDTH: Int, BUS_WID
         alpha_to_symb += (alpha_to_symb(i-1) << 1) ^ POLY
       else
         alpha_to_symb += (alpha_to_symb(i-1) << 1)
-      //println(alpha_to_symb(i))
     }
     alpha_to_symb.toSeq
   }
 
+  val FCR_SYMB = genAlphaToSymb()(FCR)
+  println(s"FCR      = $FCR")
+  println(s"FCR_SYMB = $FCR_SYMB")
+  
   def genSymbToAlpha (alphaToSymbTbl: Seq[Int]) : Seq[Int] = {
     val symbToAlphaTbl = ArrayBuffer.fill(1 << SYMB_WIDTH)(0)
     for(i <- 0 until (1 << SYMB_WIDTH)-1) {
@@ -144,6 +152,7 @@ case class Config(AXIS_CLOCK:Double, CORE_CLOCK:Double, SYMB_WIDTH: Int, BUS_WID
     }
     symbToAlphaTbl.toSeq
   }
+
 
   def alphaToSymb(alpha: UInt): UInt = {
     val alphaToSymbTbl = VecInit(genAlphaToSymb().map(_.U))
@@ -222,7 +231,7 @@ case class Config(AXIS_CLOCK:Double, CORE_CLOCK:Double, SYMB_WIDTH: Int, BUS_WID
   def genPowerFirstRoot() : Seq[Int] = {
     val genPowerFirstRootTbl = new ArrayBuffer[Int](N_LEN)
     for(i <- 0 until N_LEN) {
-      genPowerFirstRootTbl += (FIRST_ROOT_POWER * i) % FIELD_CHAR
+      genPowerFirstRootTbl += (FCR_SYMB * i) % FIELD_CHAR
     }
     genPowerFirstRootTbl.toSeq
   }
@@ -230,7 +239,7 @@ case class Config(AXIS_CLOCK:Double, CORE_CLOCK:Double, SYMB_WIDTH: Int, BUS_WID
   def genPowerFirstRootNeg() : Seq[Int] = {
     val genPowerFirstRootNegTbl = new ArrayBuffer[Int](N_LEN)
     for(i <- 0 until N_LEN) {
-      genPowerFirstRootNegTbl += (FIRST_ROOT_POWER*(FIELD_CHAR-i)) % FIELD_CHAR
+      genPowerFirstRootNegTbl += (FCR_SYMB*(FIELD_CHAR-i)) % FIELD_CHAR
     }
     genPowerFirstRootNegTbl.toSeq
   }
@@ -244,7 +253,7 @@ case class Config(AXIS_CLOCK:Double, CORE_CLOCK:Double, SYMB_WIDTH: Int, BUS_WID
   def genPowerFirstRootMin1() : Seq[Int] = {
     val genPowerFirstRootTbl = new ArrayBuffer[Int](N_LEN)
     for(i <- 0 until N_LEN) {
-      genPowerFirstRootTbl += ((FIRST_ROOT_POWER-1) * i) % FIELD_CHAR
+      genPowerFirstRootTbl += ((FCR_SYMB-1) * i) % FIELD_CHAR
     }
     genPowerFirstRootTbl.toSeq
   }
