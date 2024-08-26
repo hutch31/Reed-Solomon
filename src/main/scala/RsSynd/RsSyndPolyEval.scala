@@ -15,6 +15,10 @@ class RsSyndPolyEval(c: Config) extends Module{
   val termsSumVec = Wire(Vec(c.BUS_WIDTH, UInt(c.SYMB_WIDTH.W)))
   val termSum = Wire(UInt(c.SYMB_WIDTH.W))
 
+  val xPower = Wire(Vec(c.BUS_WIDTH, UInt(c.SYMB_WIDTH.W)))
+  val sAxisTdata  = Wire(Vec(c.BUS_WIDTH, UInt(c.SYMB_WIDTH.W)))
+  val sAxisTkeep = Wire(UInt(c.BUS_WIDTH.W))
+
   for(i <- 0 until c.BUS_WIDTH) {
     //power of X generation
     val powerDwnCntr = RegInit(UInt(cntrWidth.W), (c.N_LEN-i-1).U)
@@ -25,17 +29,39 @@ class RsSyndPolyEval(c: Config) extends Module{
         powerDwnCntr := powerDwnCntr - c.BUS_WIDTH.U
       }
     }
-    val xPower = c.gfPow(io.root, powerDwnCntr)
-    stageOut(i) := c.gfMult(io.sAxisIf.bits.tdata(i), xPower)
-  }
+    // Pipeline syndrome calculation
+    if(c.syndPipeEn) {
+      xPower(i) := RegNext(c.gfPow(io.root, powerDwnCntr), init=0.U)
+      sAxisTdata(i) := RegNext(io.sAxisIf.bits.tdata(i), init=0.U)
+    } else {
+      xPower(i) := c.gfPow(io.root, powerDwnCntr)
+      sAxisTdata(i) := io.sAxisIf.bits.tdata(i)
+    }
 
-  termsSumVec := (stageOut zip io.sAxisIf.bits.tkeep.asTypeOf(Vec(c.BUS_WIDTH, Bool()))).map{case(a,b) => a & Fill(c.SYMB_WIDTH,b) }
-  termSum := termsSumVec.reduce(_^_)
+    stageOut(i) := c.gfMult(sAxisTdata(i), xPower(i))
+  }
 
   val accumQ = RegInit(UInt(c.SYMB_WIDTH.W), 0.U)
 
-  when(io.sAxisIf.valid) {
-    when(io.sAxisIf.bits.tlast){
+  //
+  val accumVld = Wire(Bool())
+  val accumLast = Wire(Bool())
+
+  if(c.syndPipeEn) {
+    accumVld := RegNext(io.sAxisIf.valid, init=false.B)
+    accumLast := RegNext(io.sAxisIf.bits.tlast, init=false.B)
+    sAxisTkeep := RegNext(io.sAxisIf.bits.tkeep, init=0.U)
+  } else {
+    accumVld := io.sAxisIf.valid
+    accumLast := io.sAxisIf.bits.tlast
+    sAxisTkeep := io.sAxisIf.bits.tkeep
+  }
+
+  termsSumVec := (stageOut zip sAxisTkeep.asTypeOf(Vec(c.BUS_WIDTH, Bool()))).map{case(a,b) => a & Fill(c.SYMB_WIDTH,b) }
+  termSum := termsSumVec.reduce(_^_)
+
+  when(accumVld) {
+    when(accumLast){
       accumQ := 0.U
     }.otherwise{
       accumQ := accumQ ^ termSum
@@ -45,7 +71,8 @@ class RsSyndPolyEval(c: Config) extends Module{
   val synd = Reg(UInt(c.SYMB_WIDTH.W))
   val syndVld = RegInit(Bool(), false.B)
 
-  when(io.sAxisIf.valid && io.sAxisIf.bits.tlast) {
+  // Capture syndrome value
+  when(accumVld && accumLast) {
     synd := accumQ ^ termSum
     syndVld := true.B
   }.otherwise{

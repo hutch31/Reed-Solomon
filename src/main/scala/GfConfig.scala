@@ -17,6 +17,10 @@ case class Config(AXIS_CLOCK:Double, CORE_CLOCK:Double, SYMB_WIDTH: Int, BUS_WID
   val decoderSingleClock = if(CLOCK_RATION == 1.0) true else false
 
   //////////////////////////////
+  // Syndrome
+  //////////////////////////////
+  val syndPipeEn = true
+  //////////////////////////////
   // Berlekamp Massey Parameters
   //////////////////////////////
 
@@ -41,7 +45,7 @@ case class Config(AXIS_CLOCK:Double, CORE_CLOCK:Double, SYMB_WIDTH: Int, BUS_WID
   val chienErrBitPosLatencyFull = chienErrBitPosLatency + 1
 
   val chienPosToNumComboLen = 1
-  require(chienPosToNumComboLen <= T_LEN-1, "chienPosToNumComboLen more than (T_LEN-1)")
+  require(chienPosToNumComboLen <= T_LEN-1, s"chienPosToNumComboLen = $chienPosToNumComboLen more than (T_LEN-1)")
   val chienBitPosLatency = if(chienPosToNumComboLen == T_LEN-1) 0 else (T_LEN-1)/chienPosToNumComboLen
   val chienBitPosLatencyFull = chienBitPosLatency + 2 // +1 captFfsQ +1 errPosIf.valid
 
@@ -144,7 +148,7 @@ case class Config(AXIS_CLOCK:Double, CORE_CLOCK:Double, SYMB_WIDTH: Int, BUS_WID
   val FCR_SYMB = genAlphaToSymb()(FCR)
   println(s"FCR      = $FCR")
   println(s"FCR_SYMB = $FCR_SYMB")
-  
+
   def genSymbToAlpha (alphaToSymbTbl: Seq[Int]) : Seq[Int] = {
     val symbToAlphaTbl = ArrayBuffer.fill(1 << SYMB_WIDTH)(0)
     for(i <- 0 until (1 << SYMB_WIDTH)-1) {
