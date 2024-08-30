@@ -7,7 +7,20 @@ import scala.math.floor
 import play.api.libs.json._
 import scala.io.Source
 
-case class Config(AXIS_CLOCK:Double, CORE_CLOCK:Double, SYMB_WIDTH: Int, BUS_WIDTH: Int, POLY: Int, FCR: Int, N_LEN: Int, K_LEN: Int, REDUNDANCY: Int, T_LEN: Int) {
+case class Config(
+  AXIS_CLOCK:Double,
+  CORE_CLOCK:Double,
+  SYMB_WIDTH: Int,
+  BUS_WIDTH: Int,
+  POLY: Int,
+  FCR: Int,
+  N_LEN: Int,
+  K_LEN: Int,
+  REDUNDANCY: Int,
+  T_LEN: Int,
+  rsCfg : RSDecoderConfig,
+)
+{
 
   val SYMB_NUM = 1 << SYMB_WIDTH
   val FIELD_CHAR = SYMB_NUM-1
@@ -19,7 +32,9 @@ case class Config(AXIS_CLOCK:Double, CORE_CLOCK:Double, SYMB_WIDTH: Int, BUS_WID
   //////////////////////////////
   // Syndrome
   //////////////////////////////
+
   val syndPipeEn = true
+
   //////////////////////////////
   // Berlekamp Massey Parameters
   //////////////////////////////
@@ -45,7 +60,7 @@ case class Config(AXIS_CLOCK:Double, CORE_CLOCK:Double, SYMB_WIDTH: Int, BUS_WID
   val chienErrBitPosLatencyFull = chienErrBitPosLatency + 1
 
   val chienPosToNumComboLen = 1
-  require(chienPosToNumComboLen <= T_LEN-1, s"chienPosToNumComboLen = $chienPosToNumComboLen more than (T_LEN-1)")
+  //require(chienPosToNumComboLen <= T_LEN-1, s"chienPosToNumComboLen = $chienPosToNumComboLen more than (T_LEN-1)")
   val chienBitPosLatency = if(chienPosToNumComboLen == T_LEN-1) 0 else (T_LEN-1)/chienPosToNumComboLen
   val chienBitPosLatencyFull = chienBitPosLatency + 2 // +1 captFfsQ +1 errPosIf.valid
 
@@ -56,24 +71,27 @@ case class Config(AXIS_CLOCK:Double, CORE_CLOCK:Double, SYMB_WIDTH: Int, BUS_WID
   //////////////////////////////
 
   // ErrataLoc - defines number of error position coefficients ErrataLoc block can process in a cycle(recursive function/feedback accumulator)
-  val forneyErrataLocTermsPerCycle = 2
+  val forneyErrataLocTermsPerCycle = rsCfg.forneyErrataLocTermsPerCycle
+  require(forneyErrataLocTermsPerCycle <= T_LEN, s"forneyErrataLocTermsPerCycle = $forneyErrataLocTermsPerCycle more than T_LEN = $T_LEN")
   val forneyErrataLocShiftLatency = math.ceil((T_LEN)/forneyErrataLocTermsPerCycle.toDouble).toInt
   val forneyErrataLocLatencyFull = forneyErrataLocShiftLatency + 1 // +1 output reg
 
   // ErrEval
   // forneyErrEvalTermsPerCycle - defines number of errata locator terms ErrEval block can process in a cycle(calculated in parallel)
-  val forneyErrEvalTermsPerCycle = 3
+  val forneyErrEvalTermsPerCycle = rsCfg.forneyErrEvalTermsPerCycle
+  require(forneyErrEvalTermsPerCycle <= T_LEN, s"forneyErrEvalTermsPerCycle = $forneyErrEvalTermsPerCycle more than T_LEN = $T_LEN")
   val forneyErrEvalShiftLatency = math.ceil((T_LEN+1)/forneyErrEvalTermsPerCycle.toDouble).toInt
   val forneyErrEvalLatencyFull = forneyErrEvalShiftLatency + 3 // +1 accumVld +1 syndXErrataLocVld +1 errEvalIf.valid
 
   // ErrEvalXlInv
-  // forneyEEXlInvTermsPerCycles - defines number of XlInv terms ErrEvalXlInv block can process in a cycle(calculated in parallel)
-  val forneyEEXlInvTermsPerCycles = 3
-  val forneyEEXlInvShiftLatency = math.ceil(T_LEN/forneyEEXlInvTermsPerCycles.toDouble).toInt
+  // forneyEEXlInvTermsPerCycle - defines number of XlInv terms ErrEvalXlInv block can process in a cycle(calculated in parallel)
+  val forneyEEXlInvTermsPerCycle = rsCfg.forneyEEXlInvTermsPerCycle
+  require(forneyEEXlInvTermsPerCycle <= T_LEN, s"forneyEEXlInvTermsPerCycle = $forneyEEXlInvTermsPerCycle more than T_LEN = $T_LEN")
+  val forneyEEXlInvShiftLatency = math.ceil(T_LEN/forneyEEXlInvTermsPerCycle.toDouble).toInt
 
   // forneyEEXlInvComboLen - this parameter is used for pipelining the stage of ErrEvalXlInv block. This parameter determines after how many stages a register is inserted.
-  val forneyEEXlInvComboLen = 2
-  require(forneyEEXlInvComboLen <= T_LEN-1, "ErrEvalXlInvStage combo length more than (T_LEN-1)")
+  val forneyEEXlInvComboLen = rsCfg.forneyEEXlInvComboLen
+  //require(forneyEEXlInvComboLen <= T_LEN-1, "ErrEvalXlInvStage combo length more than (T_LEN-1)")
   val forneyEEXlInvQStages = if(forneyEEXlInvComboLen == T_LEN-1) 1 else (T_LEN-1)/forneyEEXlInvComboLen+1
   val forneyEEXlInvShiftLatencyFull = forneyEEXlInvQStages + forneyEEXlInvShiftLatency + 2 // +1 accumVld +1 output reg
 
@@ -89,7 +107,8 @@ case class Config(AXIS_CLOCK:Double, CORE_CLOCK:Double, SYMB_WIDTH: Int, BUS_WID
   val forneyFdFullLatency = forneyFdShiftLatency + forneyFdQStages + 2 // +1 accumVld +1 output reg
 
   // ErrVal
-  val forneyEvTermsPerCycle = 3
+  val forneyEvTermsPerCycle = rsCfg.forneyEvTermsPerCycle
+  require(forneyEvTermsPerCycle <= T_LEN, s"forneyEvTermsPerCycle = $forneyEvTermsPerCycle more than T_LEN = $T_LEN")
   val forneyEvShiftLatency = math.ceil(T_LEN/forneyEvTermsPerCycle.toDouble).toInt
   val forneyEvFullLatency = forneyEvShiftLatency + 1 // +1 accum
 
@@ -226,23 +245,23 @@ case class Config(AXIS_CLOCK:Double, CORE_CLOCK:Double, SYMB_WIDTH: Int, BUS_WID
   }
 
   ////////////////////////////////////////////
-  // GF poly operations 
+  // gfPow(x=FCR_SYMB)
   ////////////////////////////////////////////
 
   // TODO: simplify if firstRoot == 2(firstRootPower = 1)
   // then:
   // genPowerFirstRootTbl += i % fieldChar
   def genPowerFirstRoot() : Seq[Int] = {
-    val genPowerFirstRootTbl = new ArrayBuffer[Int](N_LEN)
-    for(i <- 0 until N_LEN) {
+    val genPowerFirstRootTbl = new ArrayBuffer[Int](SYMB_NUM)
+    for(i <- 0 until SYMB_NUM) {
       genPowerFirstRootTbl += (FCR_SYMB * i) % FIELD_CHAR
     }
     genPowerFirstRootTbl.toSeq
   }
 
   def genPowerFirstRootNeg() : Seq[Int] = {
-    val genPowerFirstRootNegTbl = new ArrayBuffer[Int](N_LEN)
-    for(i <- 0 until N_LEN) {
+    val genPowerFirstRootNegTbl = new ArrayBuffer[Int](SYMB_NUM)
+    for(i <- 0 until SYMB_NUM) {
       genPowerFirstRootNegTbl += (FCR_SYMB*(FIELD_CHAR-i)) % FIELD_CHAR
     }
     genPowerFirstRootNegTbl.toSeq
@@ -255,8 +274,8 @@ case class Config(AXIS_CLOCK:Double, CORE_CLOCK:Double, SYMB_WIDTH: Int, BUS_WID
   }
 
   def genPowerFirstRootMin1() : Seq[Int] = {
-    val genPowerFirstRootTbl = new ArrayBuffer[Int](N_LEN)
-    for(i <- 0 until N_LEN) {
+    val genPowerFirstRootTbl = new ArrayBuffer[Int](SYMB_NUM)
+    for(i <- 0 until SYMB_NUM) {
       genPowerFirstRootTbl += ((FCR_SYMB-1) * i) % FIELD_CHAR
     }
     genPowerFirstRootTbl.toSeq
@@ -279,10 +298,10 @@ case class Config(AXIS_CLOCK:Double, CORE_CLOCK:Double, SYMB_WIDTH: Int, BUS_WID
 
 // Full config objects
 object Config {
-  def apply(jsonConfig: JsonConfig): Config = {
+  def apply(jsonConfig: JsonConfig, rsCfg : RSDecoderConfig=RSDecoderConfigs.RS255_239): Config = {
     val REDUNDANCY = jsonConfig.N_LEN - jsonConfig.K_LEN
     val T_LEN = REDUNDANCY/2
-    Config(jsonConfig.AXIS_CLOCK, jsonConfig.CORE_CLOCK, jsonConfig.SYMB_WIDTH, jsonConfig.BUS_WIDTH, jsonConfig.POLY, jsonConfig.FCR, jsonConfig.N_LEN, jsonConfig.K_LEN, REDUNDANCY, T_LEN)
+    Config(jsonConfig.AXIS_CLOCK, jsonConfig.CORE_CLOCK, jsonConfig.SYMB_WIDTH, jsonConfig.BUS_WIDTH, jsonConfig.POLY, jsonConfig.FCR, jsonConfig.N_LEN, jsonConfig.K_LEN, REDUNDANCY, T_LEN, rsCfg)
   }
 }
 
