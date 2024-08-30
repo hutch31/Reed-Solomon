@@ -54,11 +54,12 @@ class RsBlockRecovery(c: Config) extends Module {
 
   val cntr = RegInit(UInt((log2Ceil(c.BUS_WIDTH * c.MSG_DURATION)+1).W), 0.U)
   val mReady = RegInit(Bool(),false.B)
+
   sQueue.io.deq.ready := mReady
 
   // Counter controlls READ operation from sQueue
   when(startMsg) {
-    cntr := cntr + c.BUS_WIDTH.U
+    cntr := c.BUS_WIDTH.U
     mReady := true.B
   }.elsewhen(mReady){
     when(sQueue.io.deq.bits.tlast) {
@@ -70,26 +71,35 @@ class RsBlockRecovery(c: Config) extends Module {
   }
 
   // Read out the message when queueErrVal is not empty
-  // and there is no reading operation
+  // and there is no reading operation.
+  // B2B: during last cycle of block N check queueErrVal.io.deq.valid
+  // if the block N+1 has already proccesed and ErrVal available then start
+  // to read out block N+1 from the sQueue.
+
   when(~mReady & queueErrVal.io.deq.valid) {
+    startMsg := true.B
+  }.elsewhen(mReady & sQueue.io.deq.bits.tlast & queueErrVal.io.deq.valid){
     startMsg := true.B
   }.otherwise{
     startMsg := false.B
   }
 
   // Shift position value is less than current cntr value
-  val shiftEnableVec = Wire(Vec(c.BUS_WIDTH, UInt(1.W)))
+  val LOOP_LIMIT = if(c.T_LEN < c.BUS_WIDTH) c.T_LEN else c.BUS_WIDTH
+
+  val shiftEnableVec = Wire(Vec(LOOP_LIMIT, UInt(1.W)))
   val shiftVal = shiftEnableVec.reduce(_+&_)
   
   val errPosVecRev = VecInit(queueErrPos.io.deq.bits.vec.reverse)
   val errValVecRev = VecInit(queueErrVal.io.deq.bits.reverse)
-
-  val errPosAxis = Wire(Vec(c.BUS_WIDTH, UInt(log2Ceil(c.BUS_WIDTH).W)))
+  val errPosAxis = Wire(Vec(LOOP_LIMIT, UInt(log2Ceil(c.BUS_WIDTH).W)))
   val errPosVec = Reg(Vec(c.T_LEN, UInt(c.SYMB_WIDTH.W)))
   val errValVec = Reg(Vec(c.T_LEN, UInt(c.SYMB_WIDTH.W)))
   val errPosSel = Reg(UInt(c.T_LEN.W))
 
-  val ffsCountOnes = c.SYMB_WIDTH.U - PopCount(queueErrPos.io.deq.bits.ffs)
+  val ffsCountOnes = c.T_LEN.U - PopCount(queueErrPos.io.deq.bits.ffs)
+
+  dontTouch(ffsCountOnes)
 
   when(correctMsg) {
     errPosVec := (errPosVecRev.asUInt >> (c.SYMB_WIDTH.U * ffsCountOnes)).asTypeOf(Vec(c.T_LEN, UInt(c.SYMB_WIDTH.W)))
@@ -102,7 +112,7 @@ class RsBlockRecovery(c: Config) extends Module {
   }
 
   // Shift enable
-  for(i <- 0 until c.BUS_WIDTH) {
+  for(i <- 0 until LOOP_LIMIT) {
     errPosAxis(i) := errPosVec(i) % c.BUS_WIDTH.U
     when(errPosVec(i) < cntr) {
       shiftEnableVec(i) := errPosSel(i)
@@ -116,13 +126,15 @@ class RsBlockRecovery(c: Config) extends Module {
 
   mTdata := sQueue.io.deq.bits.tdata  
 
+  val TLAST_TKEEP = if(c.N_LEN % c.BUS_WIDTH == 0) c.BUS_WIDTH else c.N_LEN % c.BUS_WIDTH
+
   when(sQueue.io.deq.bits.tlast){
-    mTkeep := Fill(c.N_LEN % c.BUS_WIDTH, 1.U)
+    mTkeep := Fill(TLAST_TKEEP, 1.U)
   }.otherwise{
     mTkeep := Fill(c.BUS_WIDTH, 1.U)
   }
 
-  for(i <- 0 until c.BUS_WIDTH) {
+  for(i <- 0 until LOOP_LIMIT) {
     when(shiftEnableVec(i) === 1.U){
       mTdata(errPosAxis(i)) := sQueue.io.deq.bits.tdata(errPosAxis(i)) ^ errValVec(i)
     }
@@ -143,7 +155,8 @@ object GenRsBlockRecovery extends App {
   ConfigParser.parse(args) match {
     case Some(config) =>
       JsonWriter.writeToFile(config, "rs.json")
-      val c = Config(config)
+      val rsCfg = RSDecoderConfigs.getConfig(config.N_LEN, config.K_LEN)
+      val c = Config(config, rsCfg)
       //val c = JsonReader.readConfig(projectRoot + "/rs.json")
       ChiselStage.emitSystemVerilogFile(new RsBlockRecovery(c), Array())
     case None =>
