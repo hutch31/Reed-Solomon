@@ -4,7 +4,7 @@ import argparse
 from config import RsConfig
 import cocotb
 from cocotb.runner import get_runner
-from config import PRJ_DIR, N_LEN, K_LEN, T_LEN, REDUNDANCY, FCR
+from config import PRJ_DIR, N_LEN, K_LEN, T_LEN, REDUNDANCY, FCR, MSG_DURATION
 import random
 from rs_packets_builder import RsPacketsBuilder
 from rs_interface_builder import RsIfBuilder
@@ -143,7 +143,7 @@ async def decoder_test(dut, error_type, pkt_num = 1, flow_ctrl='always_on'):
     
 @cocotb.test()
 async def random_error_test(dut):
-    await decoder_test(dut, 'random_error', 25)
+    await decoder_test(dut, 'random_error', 2*MSG_DURATION)
 
 @cocotb.test()
 async def flow_cntr_enable_test(dut):
@@ -155,8 +155,8 @@ async def cover_all_errors_test(dut):
 
 @cocotb.test()
 async def error_burst_test(dut):
-    await decoder_test(dut, 'error_burst', 50)
+    await decoder_test(dut, 'error_burst', 2*MSG_DURATION)
     
 @cocotb.test()
 async def uncorrupted_msg_test(dut):
-    await decoder_test(dut, 'uncorrupted_msg', T_LEN)
+    await decoder_test(dut, 'uncorrupted_msg', 2*MSG_DURATION)
