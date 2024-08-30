@@ -36,3 +36,31 @@ jobs:
 
     - name: coco-sim
       uses: ./.github/actions/cocotb-sim
+
+  dec_p285_n108_k106:    
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        bus-width: [4, 8]
+        
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      with:
+        submodules: true
+      
+    - name: build
+      uses: ./.github/actions/chisel-build
+      with:
+        axis_clock: '156.25'
+        core_clock: '125.00'
+        symb_width: '8'
+        bus_width: ${{ matrix.bus-width}}
+        poly: '285'
+        fcr: '0'
+        n_len: '108'
+        k_len: '106'
+
+    - name: coco-sim
+      uses: ./.github/actions/cocotb-sim
