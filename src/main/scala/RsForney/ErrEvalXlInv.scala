@@ -10,15 +10,15 @@ class ErrEvalXlInv(c: Config) extends Module {
     val errEvalXlInvIf = Output(Valid(new vecFfsIf(c.T_LEN, c.SYMB_WIDTH)))
   })
 
-  val shiftVec = Module(new ShiftBundleMod(UInt(c.SYMB_WIDTH.W), c.T_LEN, c.forneyEEXlInvTermsPerCycles))
-  val stage = for(i <- 0 until c.forneyEEXlInvTermsPerCycles) yield Module(new ErrEvalXlInvStage(c))
-  val stageOut = Wire(Vec(c.forneyEEXlInvTermsPerCycles, Vec(c.T_LEN+1, UInt(c.SYMB_WIDTH.W))))
+  val shiftVec = Module(new ShiftBundleMod(UInt(c.SYMB_WIDTH.W), c.T_LEN, c.forneyEEXlInvTermsPerCycle))
+  val stage = for(i <- 0 until c.forneyEEXlInvTermsPerCycle) yield Module(new ErrEvalXlInvStage(c))
+  val stageOut = Wire(Vec(c.forneyEEXlInvTermsPerCycle, Vec(c.T_LEN+1, UInt(c.SYMB_WIDTH.W))))
 
   // Shift XlInvIf
   shiftVec.io.vecIn.bits  := io.XlInvIf.bits.vec
   shiftVec.io.vecIn.valid := io.errEvalIf.valid
 
-  for(i <- 0 until c.forneyEEXlInvTermsPerCycles) {
+  for(i <- 0 until c.forneyEEXlInvTermsPerCycle) {
     stage(i).io.vecIn.bits := io.errEvalIf.bits.vec
     stage(i).io.vecIn.valid := shiftVec.io.lastOut
     stage(i).io.XlInvSymb := shiftVec.io.vecOut.bits(i)
@@ -32,7 +32,7 @@ class ErrEvalXlInv(c: Config) extends Module {
   // The matrix fully loaded into accumMat when lastQ is asserted
   val lastQ = RegNext(stage(0).io.vecOut.valid)
 
-  val accumMat = Module(new AccumMat(c.SYMB_WIDTH, c.T_LEN+1, c.forneyEEXlInvTermsPerCycles, c.forneyEEXlInvShiftLatency, c.T_LEN))
+  val accumMat = Module(new AccumMat(c.SYMB_WIDTH, c.T_LEN+1, c.forneyEEXlInvTermsPerCycle, c.forneyEEXlInvShiftLatency, c.T_LEN))
 
   accumMat.io.vecIn := stageOut
 
