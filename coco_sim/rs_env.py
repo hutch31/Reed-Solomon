@@ -8,13 +8,14 @@ from cocotb.triggers import with_timeout
 from tb_utils import reset_dut
 from tb_utils import custom_clock
 from tb_utils import watchdog_set
+from tb_utils import assert_signal
 
 from scoreboard import Comparator
 from axis import AxisDriver
 from axis import AxisResponder
 from axis import AxisMonitor
 
-from config import ENCODE_MSG_DURATION
+from config import MSG_DURATION
 from config import SINGLE_CLOCK
 from config import AXIS_CLOCK
 from config import CORE_CLOCK
@@ -52,7 +53,9 @@ class RsEnv():
         await cocotb.start(custom_clock(self.dut.clock, 1000/AXIS_CLOCK))
         if not SINGLE_CLOCK:
             await cocotb.start(custom_clock(self.dut.io_coreClock, 1000/CORE_CLOCK))
-            
+
+        # Start assertion for FIFO full
+        await cocotb.start(assert_signal(self.dut.clock, self.dut.io_fifoFull))
         for m_mon in self.m_monitors:
             await cocotb.start(m_mon.mon_if())
         
@@ -69,7 +72,7 @@ class RsEnv():
                 await Join(corouting)
                 
         # TODO: add delay based on latency
-        for i in range(ENCODE_MSG_DURATION+400):
+        for i in range(MSG_DURATION+400):
             await RisingEdge(self.dut.clock)
             
         #await watchdog_set(self.dut.clock, self.comparators)

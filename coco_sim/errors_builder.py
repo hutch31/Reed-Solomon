@@ -16,8 +16,8 @@ class ErrorsBuilder():
         self._builder['cover_all_errors'] = self.cover_all_errors
         self._builder['error_burst']      = self.error_burst
         self._builder['static_error']     = self.static_error
-        self._builder['uncorrupted_msg']     = self.uncorrupted_msg
-
+        self._builder['uncorrupted_msg']  = self.uncorrupted_msg
+        
     def generate_error(self, error_type):
         error_func = self._builder.get(error_type)
         if not error_func:
