@@ -57,6 +57,9 @@ class FormalDerivative(c: Config) extends Module {
   }
 
   val XlMultXlInv = Wire(Vec(c.forneyFdTermsPerCycle, (Vec(c.T_LEN-1, (UInt(c.SYMB_WIDTH.W))))))
+  val XlMultXlInvQ = Reg(Vec(c.forneyFdTermsPerCycle, (Vec(c.T_LEN-1, (UInt(c.SYMB_WIDTH.W))))))
+  XlMultXlInvQ := XlMultXlInv
+
   val stageEoPFd1 = Wire(Bool())
 
   val stageFd = for(i <- 0 until c.forneyFdTermsPerCycle) yield Module(new FormalDerivativeStage(c))
@@ -77,7 +80,7 @@ class FormalDerivative(c: Config) extends Module {
   stageEoPFd1 := ShiftRegister(lastCycleFd0, c.forneyFdQStages+1, false.B, true.B)
 
   for(i <- 0 until c.forneyFdTermsPerCycle) {    
-    stageFd(i).io.in := XlMultXlInv(i)
+    stageFd(i).io.in := XlMultXlInvQ(i)
   }
 
   // Pipelining FD1
@@ -89,8 +92,7 @@ class FormalDerivative(c: Config) extends Module {
 
   // Formal derivative
   val formalDerArray = Wire(Vec(c.T_LEN, (Vec(c.T_LEN, UInt(c.SYMB_WIDTH.W)))))
-  dontTouch(formalDerArray)
-  
+
   for(m <- 0 until c.T_LEN) {
     for(n <- 0 until c.T_LEN) {
       if(m == 0)
@@ -115,24 +117,36 @@ class FormalDerivativeStage(c: Config) extends Module {
     val out = Output(Vec(c.T_LEN-1, UInt(c.SYMB_WIDTH.W)))
   })
 
-  val qStage = Reg(Vec(c.forneyFdQStages+1, (Vec(c.T_LEN-1, UInt(c.SYMB_WIDTH.W)))))
+  val qStage = Reg(Vec(c.forneyFdQStages, (Vec(c.T_LEN-1, UInt(c.SYMB_WIDTH.W)))))
   val comboStage = Wire(Vec(c.forneyFdQStages, (Vec(c.T_LEN-1, UInt(c.SYMB_WIDTH.W)))))
 
-  qStage(0) := io.in
-  io.out := qStage(c.forneyFdQStages)
-  
+  io.out := qStage(c.forneyFdQStages-1)
+
   for(i <- 0 until c.forneyFdQStages){
+
+    val initStage = Wire(Vec(c.T_LEN-1, UInt(c.SYMB_WIDTH.W)))
+
+    if(i == 0) {
+      initStage := io.in
+    } else {
+      initStage := qStage(i-1)
+    }
+
+    // Indexes determine positions where logic
+    // should be inserted.
+
     val start_indx = 1+i*c.forneyFdComboLen
     val stop_indx = 1+c.forneyFdComboLen+i*c.forneyFdComboLen
+
     for(k <- 0 until c.T_LEN-1) {
       if(k < start_indx)
-        comboStage(i)(k) := qStage(i)(k)
+        comboStage(i)(k) := initStage(k)
       else if(k < stop_indx)
-        comboStage(i)(k) := c.gfMult(comboStage(i)(k-1), qStage(i)(k))
+        comboStage(i)(k) := c.gfMult(comboStage(i)(k-1), initStage(k))
       else
-        comboStage(i)(k) := qStage(i)(k)
+        comboStage(i)(k) := initStage(k)
     }
-    qStage(i+1) := comboStage(i)
+    qStage(i) := comboStage(i)
   }
 }
 
