@@ -20,6 +20,8 @@ class PrioEnc(width: Int) extends Module {
 
 }
 
+// TODO: delete FindFirstSet
+
 class FindFirstSet(width: Int) extends Module {
   val io = IO(new Bundle {
     val in = Input(UInt(width.W)) // Assuming a width-bit input vector
@@ -43,15 +45,15 @@ class FindFirstSetNew(width: Int, lsbFirst: Boolean=true) extends Module {
   io.out := 0.U
 
   if(lsbFirst) {
-    for(i <- (width-1 to 0 by -1)) {
+    for(i <- (0 until width).reverse) {
       when(io.in(i) === 1.U) {
-        io.out := (1 << i).U
+        io.out := (BigInt(1) << i).U
       }
     }
   } else {
     for(i <- (0 until width)) {
       when(io.in(i) === 1.U) {
-        io.out := (1 << i).U
+        io.out := (BigInt(1) << i).U
       }
     }
   }
