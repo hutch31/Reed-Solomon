@@ -13,7 +13,7 @@ class FormalDerivative(c: Config) extends Module {
     val XlInvIf = Input(Valid(new vecFfsIf(c.T_LEN, c.SYMB_WIDTH)))
     val Xl = Input(Vec(c.T_LEN, (UInt(c.SYMB_WIDTH.W))))
     // TODO: do we need valid signal here ?! 
-    val formalDerIf    = Output(Vec(c.T_LEN, UInt(c.SYMB_WIDTH.W)))
+    val formalDerIf    = Output(Valid(Vec(c.T_LEN, UInt(c.SYMB_WIDTH.W))))
   })
 
   /////////////////////////////////
@@ -77,6 +77,7 @@ class FormalDerivative(c: Config) extends Module {
   // FD stage
   /////////////////////////////////
 
+
   stageEoPFd1 := ShiftRegister(lastCycleFd0, c.forneyFdQStages+1, false.B, true.B)
 
   for(i <- 0 until c.forneyFdTermsPerCycle) {    
@@ -86,6 +87,13 @@ class FormalDerivative(c: Config) extends Module {
   // Pipelining FD1
   val pipeFd1VldQ = RegNext(next=stageEoPFd1, init=false.B)
 
+  // Capture FFS if the block latency more than messga duration
+
+  
+  val ffsFdQ = Reg(UInt(c.T_LEN.W))
+  when(lastCycleFd0) {
+    ffsFdQ := io.XlInvIf.bits.ffs
+  }
   // Accumulate FDstage output
   val accumMat = Module(new AccumMat(c.SYMB_WIDTH, c.T_LEN-1, c.forneyFdTermsPerCycle, c.forneyFdShiftLatency , c.T_LEN))
   accumMat.io.vecIn := VecInit(stageFd.map(_.io.out))
@@ -105,10 +113,11 @@ class FormalDerivative(c: Config) extends Module {
   val formalDer = Reg(Vec(c.T_LEN, UInt(c.SYMB_WIDTH.W)))
 
   when(pipeFd1VldQ) {
-    formalDer := Mux1H(io.XlInvIf.bits.ffs, formalDerArray)
+    formalDer := Mux1H(ffsFdQ, formalDerArray)
   }
 
-  io.formalDerIf := formalDer
+  io.formalDerIf.bits := formalDer
+  io.formalDerIf.valid := pipeFd1VldQ
 }
 
 class FormalDerivativeStage(c: Config) extends Module {
