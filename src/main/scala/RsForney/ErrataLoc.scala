@@ -8,7 +8,7 @@ class ErrataLoc(c: Config) extends Module {
     val errPosCoefIf = Input(Valid(new vecFfsIf(c.T_LEN, c.SYMB_WIDTH)))
     val errataLocIf = Output(Valid(new vecFfsIf(c.T_LEN+1, c.SYMB_WIDTH)))
   })
-
+  
   // Modules instances
   val stage = for(i <- 0 until c.forneyErrataLocTermsPerCycle) yield Module(new ErrataLocatorStage(c))
 

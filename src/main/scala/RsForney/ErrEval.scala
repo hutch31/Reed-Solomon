@@ -76,6 +76,7 @@ class ErrEval(c: Config) extends Module{
 
   // Expand errEval vec
   errEvalExp := errEval ++ 0.U.asTypeOf(Vec(1, UInt(c.SYMB_WIDTH.W)))
+  //dontTouch(errEvalExp)
 
   // Capture vec and ffs
   when(syndXErrataLocVld) {
