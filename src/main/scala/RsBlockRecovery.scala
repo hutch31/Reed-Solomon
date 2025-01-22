@@ -154,7 +154,7 @@ object GenRsBlockRecovery extends App {
 
   ConfigParser.parse(args) match {
     case Some(config) =>
-      JsonWriter.writeToFile(config, "rs.json")
+      JsonHandler.writeToFile(config, "rs.json")
       val rsCfg = RSDecoderConfigs.getConfig(config.N_LEN, config.K_LEN)
       val c = Config(config, rsCfg)
       //val c = JsonReader.readConfig(projectRoot + "/rs.json")
