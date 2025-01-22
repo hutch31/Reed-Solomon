@@ -12,18 +12,19 @@ class InsertVec[T <: Data](shiftUnit: T, inWidth: Int, outWidth: Int) extends Mo
     val vecOut  = Output(Vec(outWidth, shiftUnit))
   })
 
-  val alignInVec = Module(new AlignInVec(shiftUnit, inWidth, outWidth))
+  //val alignInVec = Module(new AlignInVec(shiftUnit, inWidth, outWidth))
   val barrelShifter = Module(new BarrelShifter(shiftUnit, outWidth))
 
-  alignInVec.io.vecIn := io.vecIn
-  alignInVec.io.shiftVal := io.shiftVal
+  //alignInVec.io.vecIn := io.vecIn
+  //alignInVec.io.shiftVal := io.shiftVal
 
-  barrelShifter.io.vecIn := io.baseVec
+  barrelShifter.io.vecIn := io.vecIn
   barrelShifter.io.shiftVal := io.shiftVal
 
   // Perform the OR operation element-wise
   for (i <- 0 until outWidth) {
-    io.vecOut(i) := (barrelShifter.io.vecOut(i).asUInt | alignInVec.io.vecOut(i).asUInt).asTypeOf(shiftUnit)
+    //io.vecOut(i) := (barrelShifter.io.vecOut(i).asUInt | alignInVec.io.vecOut(i).asUInt).asTypeOf(shiftUnit)
+    io.vecOut(i) := (barrelShifter.io.vecOut(i).asUInt | io.baseVec(i).asUInt).asTypeOf(shiftUnit)
   }
 
 }
