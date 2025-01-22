@@ -15,6 +15,7 @@ case class JsonConfig(
 )
 
 object JsonConfig {
+  // generate JSON formatter for the JsonConfig case class
   implicit val configFormat: OFormat[JsonConfig] = Json.format[JsonConfig]
 }
 
