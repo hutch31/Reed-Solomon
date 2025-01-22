@@ -20,7 +20,7 @@ class RsDecoder(c: Config) extends Module {
   rsSynd.io.sAxisIf <> io.sAxisIf
 
   // rsBm/rsChien/rsForney are connected to the coreClock/coreRst
-  val rsBm = Module(new RsBm(c))
+  val rsBm = Module(new RsBmWrap(c))
   val rsChien = Module(new RsChien(c))
   val rsForney = Module(new RsForney(c))
   rsBm.clock := io.coreClock
