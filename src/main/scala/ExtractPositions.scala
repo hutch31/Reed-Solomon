@@ -20,13 +20,13 @@ class ExtractPositions(val InWidth: Int, val PosNum: Int, val pipelineInterval: 
 
   val prefSumOut = Wire(Vec(InWidth, UInt(log2Ceil(InWidth).W)))
   val prefSumVldOut = Wire(Bool())
-
+  
   val inOut = Wire(UInt(InWidth.W))
   val inQ = Reg(Vec(numStages, (UInt(InWidth.W))))
   val inVecQ = Reg(Vec(numStages, (Vec(InWidth, Bool()))))
 
   val prefSumQ = Reg(Vec(numStages, Vec(InWidth, UInt(log2Ceil(InWidth).W))))
-  val vldQ = Reg(Vec(numStages, Bool()))
+  val vldQ = RegInit(VecInit(Seq.fill(numStages)(false.B)))
   
   // Compute prefix sum with pipeline registers
   for (stage <- 0 until numStages+1) {
