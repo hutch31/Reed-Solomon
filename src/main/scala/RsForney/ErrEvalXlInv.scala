@@ -36,15 +36,19 @@ class ErrEvalXlInv(c: Config) extends Module {
 
   accumMat.io.vecIn := stageOut
 
-  val sel = io.XlInvIf.bits.ffs << 1
+  //val sel = io.XlInvIf.bits.ffs << 1
+  val sel = io.errEvalIf.bits.ffs << 1
   val errEvalXlInvVec = Reg(Vec(c.T_LEN, UInt(c.SYMB_WIDTH.W)))
   val errEvalXlInvVld = RegNext(next=lastQ, 0.U)
   val errEvalXlInvFfs = Reg(UInt(c.T_LEN.W))
 
   when(lastQ) {
     errEvalXlInvVec := Mux1H(sel, accumMat.io.matTOut)
-    errEvalXlInvFfs := io.XlInvIf.bits.ffs // TODO: connect to the io.errEvalIf.bits.ffs
+    errEvalXlInvFfs := io.errEvalIf.bits.ffs
   }
+
+  val errEvalFfs = io.errEvalIf.bits.ffs
+  dontTouch(errEvalFfs)
 
   ///////////////////////////////////
   // Output signal
