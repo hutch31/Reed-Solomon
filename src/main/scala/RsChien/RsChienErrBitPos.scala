@@ -13,11 +13,16 @@ class RsChienErrBitPos(c: Config) extends Module{
   })
   // Localparams
   val rootsNum = c.SYMB_NUM - 1
-  val chienNonValid = ((1 << (rootsNum % c.chienRootsPerCycle)) -1)
+  val chienNonValid = ((BigInt(1) << (rootsNum % c.chienRootsPerCycle)) -1)
+  println(s"rootsNum = $rootsNum $chienNonValid")
 
   // TODO: Create the PolyEval depends on the input param
   //val polyEval = for(i <- 0 until c.chienRootsPerCycle) yield Module(new GfPolyEvalHorner(c.T_LEN+1, chienHornerComboLen, chienHorner))
   val polyEval = for(i <- 0 until c.chienRootsPerCycle) yield Module(new GfPolyEval(c, c.T_LEN+1))
+
+  ////////////////////////////////////
+  // Generate roots to substitute into the equation
+  ////////////////////////////////////
   
   val roots = Wire(Valid(Vec(c.chienRootsPerCycle, UInt(c.SYMB_WIDTH.W))))
   
@@ -58,6 +63,8 @@ class RsChienErrBitPos(c: Config) extends Module{
   val errVal = VecInit(polyEval.map(_.io.evalValue.bits))
   // Capture EvalVal into register
   val bitPos = Reg(Vec(c.chienRootsPerCycle, Bool() ))
+  dontTouch(bitPos)
+
   bitPos := errVal.map(x => ~x.orR)
 
   // We can use any Valid here, so take (0)
@@ -65,6 +72,7 @@ class RsChienErrBitPos(c: Config) extends Module{
   val bitPosVldQ = RegNext(next=bitPosVld, init=false.B)
 
   val lastCycle = Wire(Bool())
+  
   when(bitPosVld === 0.U & bitPosVldQ === 1.U){
     lastCycle := 1.U
     io.bitPos.last := 1.U

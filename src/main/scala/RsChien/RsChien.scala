@@ -17,7 +17,8 @@ class RsChien(c: Config) extends Module{
   })
 
   val rsChienErrBitPos = Module(new RsChienErrBitPos(c))
-  val rsChienBitPosToNum = Module(new RsChienBitPosToNum(c))
+  //val rsChienBitPosToNum = Module(new RsChienBitPosToNum(c))
+  val rsChienBitPosToNum = Module(new CapturePositions(c))
 
   rsChienErrBitPos.io.errLocIf <> io.errLocIf
   rsChienBitPosToNum.io.bitPos <> rsChienErrBitPos.io.bitPos
@@ -28,6 +29,14 @@ class RsChien(c: Config) extends Module{
   }.otherwise {
     io.chienErrDetect := 0.U
   }
+
+  /////////////////
+  // Assert stable
+  /////////////////
+  val stableAssrt = Module(new DataStableAssrt(new vecFfsIf(c.T_LEN, c.SYMB_WIDTH)))
+  stableAssrt.io.start := io.errPosIf.valid
+  stableAssrt.io.data := io.errPosIf.bits
+
 }
 
 //

@@ -38,6 +38,8 @@ class RsChienBitPosToNum(c: Config) extends Module{
   val validComb = Wire(Vec(c.T_LEN, Bool()))
   val lastComb = Wire(Vec(c.T_LEN, Bool()))
 
+  dontTouch(validComb)
+
   when(io.bitPos.valid === 1) {
     stageComb(0).io.bitPos := io.bitPos.pos
   }.otherwise{
@@ -82,6 +84,7 @@ class RsChienBitPosToNum(c: Config) extends Module{
 
   // Capture enabled only when data is valid in the pipe
   val captEn = validComb.asTypeOf(UInt(c.T_LEN.W)).orR
+  dontTouch(captEn)
   val errPos = Wire(Vec(c.T_LEN, UInt(c.SYMB_WIDTH.W)))
 
   for(i <- 0 until c.T_LEN) {    
