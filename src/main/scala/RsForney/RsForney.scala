@@ -61,27 +61,81 @@ class RsForney(c: Config) extends Module {
   errataLoc.io.errPosCoefIf <> errPosCoefIf
   errEval.io.errataLocIf <> errataLoc.io.errataLocIf
 
-  
+  //////////////////////////////////////
+  // Insert FIFO if required
+  //////////////////////////////////////
+
+  /////////////////
+  // Syndrome FIFO
+  /////////////////
   if(c.forneySyndFifoEn) {
     val queueSynd = Module(new Queue(Vec(c.REDUNDANCY, UInt(c.SYMB_WIDTH.W)), c.forneySyndFifoDepth))
     queueSynd.io.enq.valid := io.syndIf.valid
     queueSynd.io.enq.bits := io.syndIf.bits
     queueSynd.io.deq.ready := errEval.io.errEvalIf.valid
-    errEval.io.syndIf.bits := queueSynd.io.deq.bits    
+    errEval.io.syndIf.bits := queueSynd.io.deq.bits
   } else {
     errEval.io.syndIf.bits := io.syndIf.bits
   }
-  errEval.io.syndIf.valid := 0.U
+  errEval.io.syndIf.valid := 0.U // Don't need valid of synd
 
+  /////////////////
+  // XlInvIf FIFO to EEXlInv
+  /////////////////
+
+  if(c.XlInvIfToEEXlInvFifoEn) {
+    val queueXlInvIfToEEXlInv = Module(new Queue(new vecFfsIf(c.T_LEN, c.SYMB_WIDTH), c.XlInvIfToEEXlInvFifoDepth))
+    queueXlInvIfToEEXlInv.io.enq.valid := XlInvFfsIf.valid
+    queueXlInvIfToEEXlInv.io.enq.bits.vec := XlInvFfsIf.bits.vec
+    queueXlInvIfToEEXlInv.io.enq.bits.ffs := XlInvFfsIf.bits.ffs
+    queueXlInvIfToEEXlInv.io.deq.ready := errEval.io.errEvalIf.valid
+    errEvalXlInv.io.XlInvIf.bits.vec := queueXlInvIfToEEXlInv.io.deq.bits.vec
+    errEvalXlInv.io.XlInvIf.bits.ffs := queueXlInvIfToEEXlInv.io.deq.bits.ffs
+    errEvalXlInv.io.XlInvIf.valid    := queueXlInvIfToEEXlInv.io.deq.valid
+  } else {
+    errEvalXlInv.io.XlInvIf <> XlInvFfsIf
+  }
   errEvalXlInv.io.errEvalIf <> errEval.io.errEvalIf
-  errEvalXlInv.io.XlInvIf <> XlInvFfsIf
+
+  /////////////////
+  // formalDer FIFO to errVal
+  /////////////////
 
   formalDer.io.XlInvIf <> XlInvFfsIf
   formalDer.io.Xl := Xl
 
-  errVal.io.formalDerIf <> formalDer.io.formalDerIf
+
+  /////////////////
+  // Xl FIFO to errVal
+  /////////////////
+
+  if(c.XlIfToEvFifoEn) {
+    val queueXlIfToEv = Module(new Queue(Vec(c.T_LEN, UInt(c.SYMB_WIDTH.W)), c.XlIfToEvFifoDepth))
+    queueXlIfToEv.io.enq.valid := XlInvFfsIf.valid
+    queueXlIfToEv.io.enq.bits  := Xl
+    // Xl is connected to the shift reg which captures on the errEvalXlInvIf.valid signal
+    queueXlIfToEv.io.deq.ready := errVal.io.errValIf.valid
+    errVal.io.Xl               := queueXlIfToEv.io.deq.bits
+  } else {
+    errVal.io.Xl := Xl
+  }
+
+  /////////////////
+  // FD FIFO to errVal
+  /////////////////
+
+  if(c.FdToEvFifoEn) {
+    val queueFdToEv = Module(new Queue(Vec(c.T_LEN, UInt(c.SYMB_WIDTH.W)), c.XlIfToEvFifoDepth))
+    queueFdToEv.io.enq.valid := formalDer.io.formalDerIf.valid
+    queueFdToEv.io.enq.bits  := formalDer.io.formalDerIf.bits
+    // Xl is connected to the shift reg which captures on the errEvalXlInvIf.valid signal
+    queueFdToEv.io.deq.ready := errVal.io.errValIf.valid
+    errVal.io.formalDerIf    := queueFdToEv.io.deq.bits
+  } else {
+    errVal.io.formalDerIf <> formalDer.io.formalDerIf.bits
+  }
+
   errVal.io.errEvalXlInvIf <> errEvalXlInv.io.errEvalXlInvIf
-  errVal.io.Xl := Xl
 
   io.errValIf <> errVal.io.errValIf
 
@@ -91,8 +145,5 @@ class RsForney(c: Config) extends Module {
 
 object GenForney extends App {
   val c = JsonReader.readConfig("/home/egorman44/chisel-lib/rs.json")
-  ChiselStage.emitSystemVerilogFile(new RsForney(c), Array())
-  //ChiselStage.emitSystemVerilogFile(new FormalDerivative(), Array())
-  //ChiselStage.emitSystemVerilogFile(new ErrEval(), Array())
-  //ChiselStage.emitSystemVerilogFile(new ErrEvalXlInv(), Array())
+  ChiselStage.emitSystemVerilogFile(new RsForney(c), Array())  
 }
