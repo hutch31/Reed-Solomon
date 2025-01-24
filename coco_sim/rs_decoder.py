@@ -134,7 +134,8 @@ async def decoder_test(dut, error_type, pkt_num = 1, flow_ctrl='always_on'):
             if mon_pkt is not None:
                 mon_pkt.print_pkt()
                 m_if_containers[i].if_packets.append(mon_pkt)
-            
+        #pkt_builder.debug_msg()
+        
     # Build environment
     env = RsEnv(dut)
     env.build_env(s_if_containers, m_if_containers, flow_ctrl)
@@ -156,6 +157,10 @@ async def cover_all_errors_test(dut):
 @cocotb.test()
 async def error_burst_test(dut):
     await decoder_test(dut, 'error_burst', 2*MSG_DURATION)
+
+@cocotb.test()
+async def min_max_test(dut):
+    await decoder_test(dut, 'min_max', 100)
     
 @cocotb.test()
 async def uncorrupted_msg_test(dut):

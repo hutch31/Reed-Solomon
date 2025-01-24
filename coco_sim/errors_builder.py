@@ -16,6 +16,7 @@ class ErrorsBuilder():
         self._builder['cover_all_errors'] = self.cover_all_errors
         self._builder['error_burst']      = self.error_burst
         self._builder['static_error']     = self.static_error
+        self._builder['min_max']          = self.min_max
         self._builder['uncorrupted_msg']  = self.uncorrupted_msg
         
     def generate_error(self, error_type):
@@ -54,7 +55,12 @@ class ErrorsBuilder():
         err_positions = list(range(self.cntr+1))
         self.cntr += 1
         return err_positions
-
+    
+    def min_max(self):
+        err_num = 1 if random.random() < 0.5 else (self.T_LEN)
+        print(f"err_num = {err_num}")
+        err_positions = random.sample(range(0, self.N_LEN-self.T_LEN), err_num)
+        return err_positions    
 
 #err_gen = ErrorsBuilder(255, 8)
 #
