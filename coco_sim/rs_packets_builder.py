@@ -53,6 +53,9 @@ class RsPacketsBuilder():
         self.cor_msg.print_pkt()
         print(self.cor_msg.data)
 
+    def debug_msg(self):
+        self.get_err_val(1)
+        
     ''' Generate RS packets '''
     
     def get_pkt(self, if_name):
@@ -95,7 +98,7 @@ class RsPacketsBuilder():
             err_pos_pkt.write_data(ref_data=error_position)
             return err_pos_pkt
 
-    def get_err_val(self):
+    def get_err_val(self, dbg=1):
         syndrome = rs_calc_syndromes(self.cor_msg.data, self.REDUNDANCY, self.FCR)
         if all(x == 0 for x in syndrome):
             return None
@@ -106,4 +109,8 @@ class RsPacketsBuilder():
             _, magnitude = rs_correct_errata(msg_in=self.cor_msg.data, synd=syndrome, err_pos=error_position, fcr=self.FCR)
             err_val_pkt = Packet(name=f'err_val_pkt{self._pkt_cntr}')
             err_val_pkt.write_data(ref_data=magnitude)
-            return err_val_pkt
+            if(dbg):
+                print(f"ERROR_LOCATOR = {error_locator}")
+                print(f"ERROR_POSITION = {error_position}")
+            else:
+                return err_val_pkt
