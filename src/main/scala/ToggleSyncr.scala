@@ -11,9 +11,11 @@ class ToggleSyncr() extends Module{
     val outClk = Input(Clock())
   })
 
+  val inQ = RegNext(io.in, init=false.B)
+
   val toggleInClkQ = RegInit(Bool(), false.B)
 
-  when(io.in){
+  when(io.in & ~inQ){
     toggleInClkQ := ~toggleInClkQ
   }
 
