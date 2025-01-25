@@ -156,6 +156,13 @@ class RsBm(c: Config) extends Module {
 
   io.errLocIf.bits.ffs := ffs.io.out
 
+  /////////////////
+  // Assert not ready
+  /////////////////
+  val notReadyAssrt = Module(new NotReadyAssrt())
+  notReadyAssrt.io.start := io.syndIf.valid
+  notReadyAssrt.io.stop := io.errLocIf.valid
+
 }
 
 class RsBmStage(c: Config, lenWidth: Int) extends Module {
@@ -235,7 +242,6 @@ class RsBmStage(c: Config, lenWidth: Int) extends Module {
   io.errLocOut := errLocOut
   io.auxBOut := auxBOut
   io.errLocLenOut := errLocLenOut
-
 }
 
 // runMain Rs.GenBm
