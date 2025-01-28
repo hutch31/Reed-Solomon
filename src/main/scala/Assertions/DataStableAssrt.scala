@@ -37,7 +37,7 @@ class NotReadyAssrt extends Module {
     busy := false.B
   }
 
-  val notReady = busy & io.start
+  val notReady = busy & io.start & ~io.stop
   dontTouch(notReady)
   assert(!notReady, "[ERROR] Logic is not ready to handle next data")
 }
