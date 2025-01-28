@@ -38,7 +38,8 @@ class ErrEval(c: Config) extends Module{
 
   val accumMat = Module(new AccumMat(c.SYMB_WIDTH, c.REDUNDANCY, c.forneyErrEvalTermsPerCycle, c.forneyErrEvalShiftLatency , c.T_LEN+1))
   accumMat.io.vecIn := stageOut
-  val accumVld = RegNext(shiftVec.io.lastOut)
+  val accumVld = RegNext(shiftVec.io.lastOut, init=false.B)
+  val accumFfs = RegEnable(io.errataLocIf.bits.ffs, shiftVec.io.lastOut)
 
   ///////////////////////////////////
   // Calc Xor
@@ -51,6 +52,7 @@ class ErrEval(c: Config) extends Module{
   // Pipeline
   val syndXErrataLoc = RegNext(diagXorAll.io.xorVect)
   val syndXErrataLocVld = RegNext(next=accumVld, init=false.B)
+  val syndXErrataLocFfs = RegNext(accumFfs)
   
   ///////////////////////////////////
   // Poly Divide
@@ -68,7 +70,7 @@ class ErrEval(c: Config) extends Module{
     }
   }
 
-  val errEval = Mux1H(io.errataLocIf.bits.ffs, errorEvalArray)
+  val errEval = Mux1H(syndXErrataLocFfs, errorEvalArray)
   val errEvalExp = Wire(Vec(c.T_LEN+1, UInt(c.SYMB_WIDTH.W)))
   val errEvalExpQ = Reg(Vec(c.T_LEN+1, UInt(c.SYMB_WIDTH.W)))
 
@@ -80,13 +82,20 @@ class ErrEval(c: Config) extends Module{
 
   // Capture vec and ffs
   when(syndXErrataLocVld) {
-    errEvalFfs := io.errataLocIf.bits.ffs
+    errEvalFfs := syndXErrataLocFfs
     errEvalExpQ := errEvalExp
   }
 
   io.errEvalIf.valid := RegNext(next=syndXErrataLocVld, init=false.B)
   io.errEvalIf.bits.vec := errEvalExpQ
   io.errEvalIf.bits.ffs := errEvalFfs
+
+  /////////////////
+  // Assert not ready
+  /////////////////
+  val notReadyAssrt = Module(new NotReadyAssrt())
+  notReadyAssrt.io.start := io.errataLocIf.valid
+  notReadyAssrt.io.stop := shiftVec.io.lastOut
 
 }
 

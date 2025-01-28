@@ -59,6 +59,7 @@ class ErrEvalXlInv(c: Config) extends Module {
   io.errEvalXlInvIf.bits.vec := errEvalXlInvVec
   io.errEvalXlInvIf.valid := errEvalXlInvVld
   // Don't need ffs, since it's not used in ErrVal block
+  // and RsBlockRecovery uses ffs from RsChien.
   io.errEvalXlInvIf.bits.ffs := 0.U
 
   /////////////////

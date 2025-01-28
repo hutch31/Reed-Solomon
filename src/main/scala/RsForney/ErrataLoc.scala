@@ -13,11 +13,14 @@ class ErrataLoc(c: Config) extends Module {
   val stage = for(i <- 0 until c.forneyErrataLocTermsPerCycle) yield Module(new ErrataLocatorStage(c))
 
   // Slice valid bit that goes into comb stage(s)
-  val errataLoc = Reg(Vec(c.T_LEN+1, UInt(c.SYMB_WIDTH.W)))
   val stageOut = Wire(Vec(c.forneyErrataLocTermsPerCycle, (Vec(c.T_LEN+1, UInt(c.SYMB_WIDTH.W)))))
 
   ///////////////////////////
   // Shift vec and ffs
+  //
+  // number of cycles are defined
+  // by the ffs signal. So the latency
+  // of shiftVec could vary. 
   ///////////////////////////
 
   val shiftMod = Module(new ShiftBundleMod(new ShiftUnit, c.T_LEN, c.forneyErrataLocTermsPerCycle))
@@ -54,7 +57,8 @@ class ErrataLoc(c: Config) extends Module {
   // errPosCoefIf.valid asserted.
   ///////////////////////////
 
-  
+  val errataLoc = Reg(Vec(c.T_LEN+1, UInt(c.SYMB_WIDTH.W)))
+
   when (io.errPosCoefIf.valid) {
     for(i <- 0 until c.T_LEN+1) {
       if(i == 0)
@@ -97,7 +101,14 @@ class ErrataLoc(c: Config) extends Module {
   io.errataLocIf.valid := errataLocVld
   io.errataLocIf.bits.vec := errataLoc
   io.errataLocIf.bits.ffs := ffsQ
-  
+
+  /////////////////
+  // Assert not ready
+  /////////////////
+  val notReadyAssrt = Module(new NotReadyAssrt())
+  notReadyAssrt.io.start := io.errPosCoefIf.valid
+  notReadyAssrt.io.stop := errPosVldStage.reduce(_ || _)
+
 }
 
 class ErrataLocatorStage(c: Config) extends Module{

@@ -12,7 +12,7 @@ class FormalDerivative(c: Config) extends Module {
   val io = IO(new Bundle {
     val XlInvIf = Input(Valid(new vecFfsIf(c.T_LEN, c.SYMB_WIDTH)))
     val Xl = Input(Vec(c.T_LEN, (UInt(c.SYMB_WIDTH.W))))
-    // TODO: do we need valid signal here ?! 
+    // TODO: do we need valid signal here ?!
     val formalDerIf    = Output(Valid(Vec(c.T_LEN, UInt(c.SYMB_WIDTH.W))))
   })
 
@@ -22,7 +22,6 @@ class FormalDerivative(c: Config) extends Module {
   /////////////////////////////////
 
   val XlInvShift = Reg(Vec(c.T_LEN, (UInt(c.SYMB_WIDTH.W))))
-  val cntr = RegInit(UInt(log2Ceil(c.forneyFdStopLimit).W), 0.U)
 
   // Load data into the shift register
   when(io.XlInvIf.valid) {
@@ -35,7 +34,10 @@ class FormalDerivative(c: Config) extends Module {
 
   val lastCycleFd0 = Wire(Bool())
 
-  // cntr that controls pipe execution
+  // cntr controls pipe execution
+  val cntr = RegInit(UInt(log2Ceil(c.forneyFdStopLimit).W), 0.U)
+
+  // If there is no pipeline
   if(c.forneyFdTermsPerCycle == c.T_LEN) {
     cntr := 0.U
     lastCycleFd0 := RegNext(next=io.XlInvIf.valid, init=false.B)
@@ -57,12 +59,7 @@ class FormalDerivative(c: Config) extends Module {
   }
 
   val XlMultXlInv = Wire(Vec(c.forneyFdTermsPerCycle, (Vec(c.T_LEN-1, (UInt(c.SYMB_WIDTH.W))))))
-  val XlMultXlInvQ = Reg(Vec(c.forneyFdTermsPerCycle, (Vec(c.T_LEN-1, (UInt(c.SYMB_WIDTH.W))))))
-  XlMultXlInvQ := XlMultXlInv
 
-  val stageEoPFd1 = Wire(Bool())
-
-  val stageFd = for(i <- 0 until c.forneyFdTermsPerCycle) yield Module(new FormalDerivativeStage(c))
   val deleteItem = for(i <- 0 until c.forneyFdTermsPerCycle) yield Module(new DeleteItem(c.T_LEN, c.SYMB_WIDTH))
 
   for(i <- 0 until c.forneyFdTermsPerCycle) {
@@ -73,28 +70,29 @@ class FormalDerivative(c: Config) extends Module {
     }    
   }
 
+  // Capture result into the registers
+  val XlMultXlInvQ = RegNext(XlMultXlInv)
+  val XlmultxlinvLastQ = RegNext(lastCycleFd0, init=false.B)
+  val XlmultxlinvFfsQ = RegEnable(io.XlInvIf.bits.ffs, lastCycleFd0)
+
   /////////////////////////////////
   // FD stage
   /////////////////////////////////
 
-
-  stageEoPFd1 := ShiftRegister(lastCycleFd0, c.forneyFdQStages+1, false.B, true.B)
+  val stageFd = for(i <- 0 until c.forneyFdTermsPerCycle) yield Module(new FormalDerivativeStage(c))
+  val stageFdLast = ShiftRegister(XlmultxlinvLastQ, c.forneyFdQStages, false.B, true.B)
+  val stageFdFfs = ShiftRegister(XlmultxlinvFfsQ, c.forneyFdQStages, 0.U, true.B)
 
   for(i <- 0 until c.forneyFdTermsPerCycle) {    
     stageFd(i).io.in := XlMultXlInvQ(i)
   }
 
-  // Pipelining FD1
-  val pipeFd1VldQ = RegNext(next=stageEoPFd1, init=false.B)
-
-  // Capture FFS if the block latency more than messga duration
-
-  
-  val ffsFdQ = Reg(UInt(c.T_LEN.W))
-  when(lastCycleFd0) {
-    ffsFdQ := io.XlInvIf.bits.ffs
-  }
+  /////////////////////////////////
   // Accumulate FDstage output
+  /////////////////////////////////
+
+  val accumMatLastQ = RegNext(stageFdLast, init=false.B)
+  val accumMatFfsQ = RegNext(stageFdFfs, init=0.U)
   val accumMat = Module(new AccumMat(c.SYMB_WIDTH, c.T_LEN-1, c.forneyFdTermsPerCycle, c.forneyFdShiftLatency , c.T_LEN))
   accumMat.io.vecIn := VecInit(stageFd.map(_.io.out))
 
@@ -110,14 +108,18 @@ class FormalDerivative(c: Config) extends Module {
     }
   }
 
-  val formalDer = Reg(Vec(c.T_LEN, UInt(c.SYMB_WIDTH.W)))
-
-  when(pipeFd1VldQ) {
-    formalDer := Mux1H(ffsFdQ, formalDerArray)
-  }
+  val formalDer = RegEnable(Mux1H(accumMatFfsQ, formalDerArray), accumMatLastQ)
 
   io.formalDerIf.bits := formalDer
-  io.formalDerIf.valid := pipeFd1VldQ
+  io.formalDerIf.valid := accumMatLastQ
+
+  /////////////////
+  // Assert not ready
+  /////////////////
+  val notReadyAssrt = Module(new NotReadyAssrt())
+  notReadyAssrt.io.start := io.XlInvIf.valid
+  notReadyAssrt.io.stop := lastCycleFd0
+
 }
 
 class FormalDerivativeStage(c: Config) extends Module {

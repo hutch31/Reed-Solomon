@@ -70,6 +70,7 @@ class ErrVal(c: Config) extends Module {
   // The matrix fully loaded into accumMat when lastQ is asserted
 
   val lastQ = RegNext(shiftMod.io.lastOut)
+
   val errValAccumVec = Reg(Vec(c.forneyEvShiftLatency, Vec(c.forneyEvTermsPerCycle, UInt(c.SYMB_WIDTH.W))))
   val errValVec = Wire(Vec(c.T_LEN, UInt(c.SYMB_WIDTH.W)))
 
@@ -91,7 +92,16 @@ class ErrVal(c: Config) extends Module {
   ///////////////////////////////////
 
   io.errValIf.bits.vec := errValVec
-  io.errValIf.bits.ffs := io.errEvalXlInvIf.bits.ffs
+  // Don't need ffs, since it's not used in ErrVal block
+  // and RsBlockRecovery uses ffs from RsChien.
+  io.errValIf.bits.ffs := 0.U
   io.errValIf.valid := lastQ
+
+  /////////////////
+  // Assert not ready
+  /////////////////
+  val notReadyAssrt = Module(new NotReadyAssrt())
+  notReadyAssrt.io.start := io.errEvalXlInvIf.valid
+  notReadyAssrt.io.stop := shiftMod.io.lastOut
 
 }
