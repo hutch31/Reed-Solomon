@@ -39,3 +39,9 @@ runs:
       working-directory: ./coco_sim
       run: |
         python3 rs_decoder.py -l RsBlockRecovery
+
+    - name: check result
+      shell: bash
+      working-directory: ./coco_sim
+      run: |
+        python3 check_result.py
