@@ -38,7 +38,11 @@ class ErrataLoc(c: Config) extends Module {
   }
 
   // Map outputs
-  val errPosVldStage = shiftMod.io.vecOut.bits.map(_.ffs)
+  val errPosVldStage = Wire(Vec(c.forneyErrataLocTermsPerCycle, Bool()))
+  errPosVldStage := shiftMod.io.vecOut.bits.map(_.ffs)
+  dontTouch(errPosVldStage)
+  //val errPosVldStage = shiftMod.io.vecOut.bits.map(_.ffs)
+
   val coefPositionShift = shiftMod.io.vecOut.bits.map(_.symb)
 
   val errataLocVld = RegInit(Bool(), 0.U)
@@ -48,7 +52,7 @@ class ErrataLoc(c: Config) extends Module {
   }.otherwise {
     errataLocVld := 0.U
   }
-  
+
   ///////////////////////////
   // Capture errataLoc value
   //
@@ -93,7 +97,7 @@ class ErrataLoc(c: Config) extends Module {
   // Capture FFS
   val ffsQ = Reg(UInt(c.T_LEN.W))
 
-  when(errPosVldStage.reduce(_ || _) === 1.U) {
+  when(errPosVldStage.reduce(_ || _) === 1.U && shiftMod.io.vecOut.valid) {
     ffsQ := io.errPosCoefIf.bits.ffs
   }
 
