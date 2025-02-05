@@ -24,7 +24,7 @@ class ErrEvalXlInv(c: Config) extends Module {
     // when the accumulator is full
     stage(i).io.eopIn := shiftVec.io.lastOut
     stage(i).io.XlInvSymb := shiftVec.io.vecOut.bits(i)
-    stageOut(i) := stage(i).io.vecOut
+    stageOut(i) := stage(i).io.vecOut.vec
   }
 
   ///////////////////////////////////
@@ -34,9 +34,8 @@ class ErrEvalXlInv(c: Config) extends Module {
   val sel = Reg(UInt((c.T_LEN+1).W))
   
   // The matrix fully loaded into accumMat when lastQ is asserted
-  when(stage(0).io.eopOut) {
-    sel := io.errEvalIf.bits.ffs << 1.U
-  }
+  sel := stage(0).io.vecOut.ffs << 1.U
+
   dontTouch(sel)
 
   val lastQ = RegNext(stage(0).io.eopOut)
@@ -67,7 +66,7 @@ class ErrEvalXlInv(c: Config) extends Module {
   /////////////////
   val notReadyAssrt = Module(new NotReadyAssrt())
   notReadyAssrt.io.start := io.errEvalIf.valid
-  notReadyAssrt.io.stop := stage(0).io.eopOut
+  notReadyAssrt.io.stop := shiftVec.io.lastOut
   
 }
 
@@ -77,7 +76,8 @@ class ErrEvalXlInvStage(c: Config) extends Module {
     val XlInvSymb = Input(UInt(c.SYMB_WIDTH.W))
     val eopIn = Input(Bool())
     val eopOut = Output(Bool())
-    val vecOut = Output(Vec(c.T_LEN+1, UInt(c.SYMB_WIDTH.W)))
+    //val vecOut = Output(Vec(c.T_LEN+1, UInt(c.SYMB_WIDTH.W)))
+    val vecOut = Output(new vecFfsIf(c.T_LEN+1, c.SYMB_WIDTH))
   })
 
   val qStage = Reg(Vec(c.forneyEEXlInvQStages, (Vec(c.T_LEN+1, UInt(c.SYMB_WIDTH.W)))))
@@ -85,9 +85,14 @@ class ErrEvalXlInvStage(c: Config) extends Module {
 
   val qXlInvStage = Reg(Vec(c.forneyEEXlInvQStages, UInt(c.SYMB_WIDTH.W)))
 
-  io.vecOut := qStage(c.forneyEEXlInvQStages-1)
-
+  io.vecOut.vec := qStage(c.forneyEEXlInvQStages-1)
+  // Pipeline eop
   io.eopOut := ShiftRegister(io.eopIn, c.forneyEEXlInvQStages, false.B, true.B)
+  // Pipeline Ffs
+  // 1. Capture ffs when the pops out last data from ShiftBundleMod
+  val captFfs = RegEnable(io.errEvalIf.ffs, io.eopIn)
+  io.vecOut.ffs := ShiftRegister(captFfs, c.forneyEEXlInvQStages-1 , 0.U, true.B)
+
 
   for(i <- 0 until c.forneyEEXlInvQStages) {
     val start_indx = 1+i*c.forneyEEXlInvComboLen
