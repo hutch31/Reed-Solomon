@@ -66,13 +66,13 @@ class RsForney(c: Config) extends Module {
   //////////////////////////////////////
 
   /////////////////
-  // Syndrome FIFO
+  // Syndrome FIFO for ErrEval
   /////////////////
   if(c.forneySyndFifoEn) {
     val queueSynd = Module(new Queue(Vec(c.REDUNDANCY, UInt(c.SYMB_WIDTH.W)), c.forneySyndFifoDepth))
     queueSynd.io.enq.valid := io.syndIf.valid
     queueSynd.io.enq.bits := io.syndIf.bits
-    queueSynd.io.deq.ready := errEval.io.errEvalIf.valid
+    queueSynd.io.deq.ready := errEval.io.errEvalShiftCompleted
     errEval.io.syndIf.bits := queueSynd.io.deq.bits
   } else {
     errEval.io.syndIf.bits := io.syndIf.bits
@@ -129,7 +129,7 @@ class RsForney(c: Config) extends Module {
     queueFdToEv.io.enq.valid := formalDer.io.formalDerIf.valid
     queueFdToEv.io.enq.bits  := formalDer.io.formalDerIf.bits
     // Xl is connected to the shift reg which captures on the errEvalXlInvIf.valid signal
-    queueFdToEv.io.deq.ready := errVal.io.errValIf.valid
+    queueFdToEv.io.deq.ready := errVal.io.errValShiftCompleted
     errVal.io.formalDerIf    := queueFdToEv.io.deq.bits
   } else {
     errVal.io.formalDerIf <> formalDer.io.formalDerIf.bits
