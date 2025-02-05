@@ -108,10 +108,8 @@ class FormalDerivative(c: Config) extends Module {
     }
   }
 
-  val formalDer = RegEnable(Mux1H(accumMatFfsQ, formalDerArray), accumMatLastQ)
-
-  io.formalDerIf.bits := formalDer
-  io.formalDerIf.valid := accumMatLastQ
+  io.formalDerIf.bits := RegEnable(Mux1H(accumMatFfsQ, formalDerArray), accumMatLastQ)
+  io.formalDerIf.valid := RegNext(accumMatLastQ, init=false.B)
 
   /////////////////
   // Assert not ready
@@ -127,7 +125,7 @@ class FormalDerivativeStage(c: Config) extends Module {
     val in = Input(Vec(c.T_LEN-1, UInt(c.SYMB_WIDTH.W)))
     val out = Output(Vec(c.T_LEN-1, UInt(c.SYMB_WIDTH.W)))
   })
-
+  
   val qStage = Reg(Vec(c.forneyFdQStages, (Vec(c.T_LEN-1, UInt(c.SYMB_WIDTH.W)))))
   val comboStage = Wire(Vec(c.forneyFdQStages, (Vec(c.T_LEN-1, UInt(c.SYMB_WIDTH.W)))))
 
