@@ -8,6 +8,7 @@ class ErrEval(c: Config) extends Module{
     val errataLocIf = Input(Valid(new vecFfsIf(c.T_LEN+1, c.SYMB_WIDTH)))
     val syndIf = Input(Valid(Vec(c.REDUNDANCY, UInt(c.SYMB_WIDTH.W))))
     val errEvalIf = Output(Valid(new vecFfsIf(c.T_LEN+1, c.SYMB_WIDTH)))
+    val errEvalShiftCompleted = Output(Bool())
   })
 
   val syndRev = Wire(Vec(c.REDUNDANCY, UInt(c.SYMB_WIDTH.W)))
@@ -89,7 +90,8 @@ class ErrEval(c: Config) extends Module{
   io.errEvalIf.valid := RegNext(next=syndXErrataLocVld, init=false.B)
   io.errEvalIf.bits.vec := errEvalExpQ
   io.errEvalIf.bits.ffs := errEvalFfs
-
+  io.errEvalShiftCompleted := shiftVec.io.lastOut
+  
   /////////////////
   // Assert not ready
   /////////////////
