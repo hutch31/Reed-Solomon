@@ -9,6 +9,7 @@ class ErrVal(c: Config) extends Module {
     val errEvalXlInvIf = Input(Valid(new vecFfsIf(c.T_LEN, c.SYMB_WIDTH)))
     val Xl = Input(Vec(c.T_LEN, (UInt(c.SYMB_WIDTH.W))))
     val errValIf = Output(Valid(new vecFfsIf(c.T_LEN, c.SYMB_WIDTH)))
+    val errValShiftCompleted = Output(Bool())
   })
 
   ///////////////////////////
@@ -97,6 +98,7 @@ class ErrVal(c: Config) extends Module {
   io.errValIf.bits.ffs := 0.U
   io.errValIf.valid := lastQ
 
+  io.errValShiftCompleted := shiftMod.io.lastOut
   /////////////////
   // Assert not ready
   /////////////////
