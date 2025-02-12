@@ -3,6 +3,10 @@ package Rs
 import chisel3._
 import chisel3.util._
 
+///////////////////////////
+// ErrataLoc with feedback implementation
+///////////////////////////
+
 class ErrataLoc(c: Config) extends Module {
   val io = IO(new Bundle {
     val errPosCoefIf = Input(Valid(new vecFfsIf(c.T_LEN, c.SYMB_WIDTH)))
@@ -37,21 +41,12 @@ class ErrataLoc(c: Config) extends Module {
     shiftMod.io.vecIn.bits(i).symb := io.errPosCoefIf.bits.vec(i)
   }
 
-  // Map outputs
+  // Ffs defines the end of calculation
   val errPosVldStage = Wire(Vec(c.forneyErrataLocTermsPerCycle, Bool()))
   errPosVldStage := shiftMod.io.vecOut.bits.map(_.ffs)
   dontTouch(errPosVldStage)
-  //val errPosVldStage = shiftMod.io.vecOut.bits.map(_.ffs)
 
   val coefPositionShift = shiftMod.io.vecOut.bits.map(_.symb)
-
-  val errataLocVld = RegInit(Bool(), 0.U)
-
-  when(shiftMod.io.vecOut.valid) {
-    errataLocVld := errPosVldStage.reduce(_ || _)
-  }.otherwise {
-    errataLocVld := 0.U
-  }
 
   ///////////////////////////
   // Capture errataLoc value
@@ -75,10 +70,12 @@ class ErrataLoc(c: Config) extends Module {
     when(errPosVldStage.reduce(_ || _) === 0.U) {
       errataLoc := stage(c.forneyErrataLocTermsPerCycle-1).io.errataLoc
     }.otherwise {      
-      if(c.forneyErrataLocTermsPerCycle == 1)
+      if(c.forneyErrataLocTermsPerCycle == 1) {
         errataLoc := stage(c.forneyErrataLocTermsPerCycle-1).io.errataLoc
-      else
+      }
+      else {
         errataLoc := Mux1H(errPosVldStage, stageOut)
+      }
     }
   }
 
@@ -94,16 +91,39 @@ class ErrataLoc(c: Config) extends Module {
     }
   }
 
-  // Capture FFS
+  ////////////////////////////////////
+  // Constant latency.
+  // 
+  // Capture errataLoc and Ffs into separate register to
+  // make the block latency a constant.
+  ////////////////////////////////////
+
+  val errataLocVld = RegNext(next=shiftMod.io.lastOut, init=false.B)
   val ffsQ = Reg(UInt(c.T_LEN.W))
+  val errataLocQ = Reg(Vec(c.T_LEN+1, UInt(c.SYMB_WIDTH.W)))
 
   when(errPosVldStage.reduce(_ || _) === 1.U && shiftMod.io.vecOut.valid) {
     ffsQ := io.errPosCoefIf.bits.ffs
+    if(c.forneyErrataLocTermsPerCycle == 1) {
+      errataLocQ := stage(c.forneyErrataLocTermsPerCycle-1).io.errataLoc
+    }
+    else {
+      errataLocQ := Mux1H(errPosVldStage, stageOut)
+    }
   }
+
+  //val errataLocVld = RegInit(Bool(), 0.U)
+  //
+  //when(shiftMod.io.vecOut.valid) {
+  //  errataLocVld := errPosVldStage.reduce(_ || _)
+  //}.otherwise {
+  //  errataLocVld := 0.U
+  //}
+
 
   // Output assignment
   io.errataLocIf.valid := errataLocVld
-  io.errataLocIf.bits.vec := errataLoc
+  io.errataLocIf.bits.vec := errataLocQ
   io.errataLocIf.bits.ffs := ffsQ
 
   /////////////////
