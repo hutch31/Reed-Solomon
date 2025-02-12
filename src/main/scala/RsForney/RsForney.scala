@@ -74,6 +74,8 @@ class RsForney(c: Config) extends Module {
     queueSynd.io.enq.bits := io.syndIf.bits
     queueSynd.io.deq.ready := errEval.io.errEvalShiftCompleted
     errEval.io.syndIf.bits := queueSynd.io.deq.bits
+    val queueSyndFullWrite = !queueSynd.io.enq.ready && queueSynd.io.enq.valid && !reset.asBool
+    assert(!queueSyndFullWrite, "[ERROR] Write error into full queueSynd FIFO. Encrease FIFO depth.")
   } else {
     errEval.io.syndIf.bits := io.syndIf.bits
   }
@@ -92,6 +94,8 @@ class RsForney(c: Config) extends Module {
     errEvalXlInv.io.XlInvIf.bits.vec := queueXlInvIfToEEXlInv.io.deq.bits.vec
     errEvalXlInv.io.XlInvIf.bits.ffs := queueXlInvIfToEEXlInv.io.deq.bits.ffs
     errEvalXlInv.io.XlInvIf.valid    := queueXlInvIfToEEXlInv.io.deq.valid
+    val queueXlInvIfToEEXlInvFullWrite = !queueXlInvIfToEEXlInv.io.enq.ready && queueXlInvIfToEEXlInv.io.enq.valid && !reset.asBool
+    assert(!queueXlInvIfToEEXlInvFullWrite, "[ERROR] Write error into full queueXlInvIfToEEXlInv FIFO. Encrease FIFO depth.")
   } else {
     errEvalXlInv.io.XlInvIf <> XlInvFfsIf
   }
@@ -116,6 +120,8 @@ class RsForney(c: Config) extends Module {
     // Xl is connected to the shift reg which captures on the errEvalXlInvIf.valid signal
     queueXlIfToEv.io.deq.ready := errVal.io.errValIf.valid
     errVal.io.Xl               := queueXlIfToEv.io.deq.bits
+    val queueXlIfToEvFullWrite = !queueXlIfToEv.io.enq.ready && queueXlIfToEv.io.enq.valid && !reset.asBool
+    assert(!queueXlIfToEvFullWrite, "[ERROR] Write error into full queueXlIfToEv FIFO. Encrease FIFO depth.")
   } else {
     errVal.io.Xl := Xl
   }
@@ -131,6 +137,8 @@ class RsForney(c: Config) extends Module {
     // Xl is connected to the shift reg which captures on the errEvalXlInvIf.valid signal
     queueFdToEv.io.deq.ready := errVal.io.errValShiftCompleted
     errVal.io.formalDerIf    := queueFdToEv.io.deq.bits
+    val queueFdToEvFullWrite = !queueFdToEv.io.enq.ready && queueFdToEv.io.enq.valid && !reset.asBool
+    assert(!queueFdToEvFullWrite, "[ERROR] Write error into full queueFdToEv FIFO. Encrease FIFO depth.")
   } else {
     errVal.io.formalDerIf <> formalDer.io.formalDerIf.bits
   }
