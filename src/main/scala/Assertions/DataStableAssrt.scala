@@ -31,7 +31,7 @@ class NotReadyAssrt(Overlap: Boolean=false) extends Module {
 
   val busy = RegInit(Bool(), false.B)
 
-  when(io.start) {
+  when(io.start && !io.stop) {
     busy := true.B
   }.elsewhen(io.stop) {
     busy := false.B
