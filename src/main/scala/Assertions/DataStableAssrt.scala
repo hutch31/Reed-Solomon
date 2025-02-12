@@ -17,13 +17,13 @@ class DataStableAssrt[T <: Data](gen: T) extends Module {
     checkEn := true.B
   }
 
-  val stableError = checkEn & ~io.start & prevData.asUInt =/= io.data.asUInt
+  val stableError = checkEn & !io.start & prevData.asUInt =/= io.data.asUInt
   dontTouch(stableError)
   assert(!stableError, "[ERROR] Data is not stable")
 
 }
 
-class NotReadyAssrt extends Module {
+class NotReadyAssrt(Overlap: Boolean=false) extends Module {
   val io = IO(new Bundle {
     val start = Input(Bool())
     val stop = Input(Bool())
@@ -37,7 +37,7 @@ class NotReadyAssrt extends Module {
     busy := false.B
   }
 
-  val notReady = busy & io.start & ~io.stop
+  val notReady = if(Overlap) busy & io.start & !io.stop else busy & io.start
   dontTouch(notReady)
   assert(!notReady, "[ERROR] Logic is not ready to handle next data")
 }
