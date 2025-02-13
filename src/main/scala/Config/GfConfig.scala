@@ -210,6 +210,7 @@ case class Config(
   println(s"forneyErrEvalLatencyFull      = $forneyErrEvalLatencyFull")
   println(s"forneyEEXlInvTermsPerCycle    = $forneyEEXlInvTermsPerCycle")
   println(s"forneyEEXlInvShiftLatencyFull = $forneyEEXlInvShiftLatencyFull")
+  println(s"forneyEvTermsPerCycle         = $forneyEvTermsPerCycle")
   println(s"forneyEvFullLatency           = $forneyEvFullLatency")
   println(s"FdToEvLatencyAxisClk          = $FdToEvLatencyAxisClk")
   println(s"=== FIFO ENABLE ===")

@@ -75,6 +75,9 @@ class ErrVal(c: Config) extends Module {
   val errValAccumVec = Reg(Vec(c.forneyEvShiftLatency, Vec(c.forneyEvTermsPerCycle, UInt(c.SYMB_WIDTH.W))))
   val errValVec = Wire(Vec(c.T_LEN, UInt(c.SYMB_WIDTH.W)))
 
+  // forneyEvTermsPerCycle = 2
+  // forneyEvShiftLatency = 4
+
   for(i <- 0 until c.forneyEvShiftLatency) {
     when(shiftMod.io.vecOut.valid){
       if(i == 0)
@@ -82,10 +85,15 @@ class ErrVal(c: Config) extends Module {
       else
         errValAccumVec(c.forneyEvShiftLatency-1-i) := errValAccumVec(c.forneyEvShiftLatency-i)
     }
-    for(k <- 0 until c.forneyEvTermsPerCycle) {
-      if(i*c.forneyEvShiftLatency+k < c.T_LEN)
-        errValVec(i*c.forneyEvShiftLatency+k) := errValAccumVec(i)(k)
-    }
+  }
+
+  // Flatten 2D errValAccumVec(i)(j) into 1D errValVec(idx)
+  // where idx = i * c.forneyEvTermsPerCycle + j
+  for (idx <- 0 until c.T_LEN) {
+    // Compute row/col from idx
+    val i = idx / c.forneyEvTermsPerCycle
+    val j = idx % c.forneyEvTermsPerCycle
+    errValVec(idx) := errValAccumVec(i)(j)
   }
 
   ///////////////////////////////////
