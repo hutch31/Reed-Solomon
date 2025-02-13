@@ -33,6 +33,13 @@ class ErrEval(c: Config) extends Module{
     stageOut(i) := stage(i).io.syndXErrataLoc
   }
 
+  // Capture ffs 
+  val shiftFfs = Wire(UInt((c.T_LEN+1).W))
+  if(c.forneyErrEvalTermsPerCycle == c.T_LEN+1)
+    shiftFfs := io.errataLocIf.bits.ffs
+  else
+    shiftFfs := RegEnable(io.errataLocIf.bits.ffs, io.errataLocIf.valid)
+
   ///////////////////////////////////
   // Accum matrix
   ///////////////////////////////////
@@ -40,7 +47,7 @@ class ErrEval(c: Config) extends Module{
   val accumMat = Module(new AccumMat(c.SYMB_WIDTH, c.REDUNDANCY, c.forneyErrEvalTermsPerCycle, c.forneyErrEvalShiftLatency , c.T_LEN+1))
   accumMat.io.vecIn := stageOut
   val accumVld = RegNext(shiftVec.io.lastOut, init=false.B)
-  val accumFfs = RegEnable(io.errataLocIf.bits.ffs, shiftVec.io.lastOut)
+  val accumFfs = RegEnable(shiftFfs, shiftVec.io.lastOut)
 
   ///////////////////////////////////
   // Calc Xor
