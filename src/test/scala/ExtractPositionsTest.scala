@@ -6,7 +6,7 @@ import org.scalatest.freespec.AnyFreeSpec
 class ExtractPositionsTest extends AnyFreeSpec with ChiselScalatestTester {
   //behavior of "ExtractPositions"
 
-  "correctly extract positions of high bits" in {
+  "ExtractPositionsTest" in {
     // Parameters for the test
     val N = 8
     val M = 4
