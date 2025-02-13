@@ -68,6 +68,8 @@ if __name__ == "__main__":
     if args.seed:
         os.environ["RANDOM_SEED"] = args.seed
     build_and_run()
+        
+    
 
 '''
 TESTS:
@@ -144,7 +146,7 @@ async def decoder_test(dut, error_type, pkt_num = 1, flow_ctrl='always_on'):
     
 @cocotb.test()
 async def random_error_test(dut):
-    await decoder_test(dut, 'random_error', 2*MSG_DURATION)
+    await decoder_test(dut, 'random_error', 20)
 
 @cocotb.test()
 async def flow_cntr_enable_test(dut):

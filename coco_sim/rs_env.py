@@ -55,7 +55,7 @@ class RsEnv():
             await cocotb.start(custom_clock(self.dut.io_coreClock, 1000/CORE_CLOCK))
 
         # Start assertion for FIFO full
-        await cocotb.start(assert_signal(self.dut.clock, self.dut.io_fifoFull))
+        await cocotb.start(assert_signal(self.dut.clock,self.dut.reset, self.dut.io_fifoFull))
         for m_mon in self.m_monitors:
             await cocotb.start(m_mon.mon_if())
         
