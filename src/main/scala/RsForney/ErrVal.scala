@@ -74,10 +74,7 @@ class ErrVal(c: Config) extends Module {
 
   val errValAccumVec = Reg(Vec(c.forneyEvShiftLatency, Vec(c.forneyEvTermsPerCycle, UInt(c.SYMB_WIDTH.W))))
   val errValVec = Wire(Vec(c.T_LEN, UInt(c.SYMB_WIDTH.W)))
-
-  // forneyEvTermsPerCycle = 2
-  // forneyEvShiftLatency = 4
-
+  
   for(i <- 0 until c.forneyEvShiftLatency) {
     when(shiftMod.io.vecOut.valid){
       if(i == 0)
@@ -107,6 +104,7 @@ class ErrVal(c: Config) extends Module {
   io.errValIf.valid := lastQ
 
   io.errValShiftCompleted := shiftMod.io.lastOut
+
   /////////////////
   // Assert not ready
   /////////////////

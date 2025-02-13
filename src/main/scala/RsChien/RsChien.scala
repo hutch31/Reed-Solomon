@@ -35,6 +35,7 @@ class RsChien(c: Config) extends Module{
   /////////////////
   val stableAssrt = Module(new DataStableAssrt(new vecFfsIf(c.T_LEN, c.SYMB_WIDTH)))
   stableAssrt.io.start := io.errPosIf.valid
+  stableAssrt.io.stop := false.B
   stableAssrt.io.data := io.errPosIf.bits
 
 }

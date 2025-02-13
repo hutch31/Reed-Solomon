@@ -112,15 +112,6 @@ class ErrataLoc(c: Config) extends Module {
     }
   }
 
-  //val errataLocVld = RegInit(Bool(), 0.U)
-  //
-  //when(shiftMod.io.vecOut.valid) {
-  //  errataLocVld := errPosVldStage.reduce(_ || _)
-  //}.otherwise {
-  //  errataLocVld := 0.U
-  //}
-
-
   // Output assignment
   io.errataLocIf.valid := errataLocVld
   io.errataLocIf.bits.vec := errataLocQ
