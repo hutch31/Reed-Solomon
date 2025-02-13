@@ -26,7 +26,7 @@ jobs:
       uses: ./.github/actions/chisel-build
       with:
         axis_clock: '156.25'
-        core_clock: '125.00'
+        core_clock: '156.25'
         symb_width: '8'
         bus_width: ${{ matrix.bus-width}}
         poly: '285'
@@ -54,7 +54,7 @@ jobs:
       uses: ./.github/actions/chisel-build
       with:
         axis_clock: '156.25'
-        core_clock: '125.00'
+        core_clock: '156.25'
         symb_width: '8'
         bus_width: ${{ matrix.bus-width}}
         poly: '285'
