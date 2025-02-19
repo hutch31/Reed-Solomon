@@ -3,7 +3,7 @@ package Rs
 import scopt.OParser
 import play.api.libs.json.{Json, OFormat}
 
-case class JsonConfig(
+case class CmdConfig(
   AXIS_CLOCK: Double,
   CORE_CLOCK: Double,
   SYMB_WIDTH: Int,
@@ -14,15 +14,15 @@ case class JsonConfig(
   K_LEN: Int
 )
 
-object JsonConfig {
-  // generate JSON formatter for the JsonConfig case class
-  implicit val configFormat: OFormat[JsonConfig] = Json.format[JsonConfig]
+object CmdConfig {
+  // generate JSON formatter for the CmdConfig case class
+  implicit val configFormat: OFormat[CmdConfig] = Json.format[CmdConfig]
 }
 
 object ConfigParser {
-  private val builder = OParser.builder[JsonConfig]
-
-  val parser: OParser[Unit, JsonConfig] = {
+  private val builder = OParser.builder[CmdConfig]
+  
+  val parser: OParser[Unit, CmdConfig] = {
     import builder._
     OParser.sequence(
       programName("ChiselRSConfig"),
@@ -70,7 +70,7 @@ object ConfigParser {
     )
   }
 
-  def parse(args: Array[String]): Option[JsonConfig] = {
-    OParser.parse(parser, args, JsonConfig(0.0, 0.0, 0, 0, 0, 0, 0, 0))
+  def parse(args: Array[String]): Option[CmdConfig] = {
+    OParser.parse(parser, args, CmdConfig(0.0, 0.0, 0, 0, 0, 0, 0, 0))
   }
 }
