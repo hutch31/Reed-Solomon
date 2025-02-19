@@ -246,7 +246,7 @@ class RsBmStage(c: Config, lenWidth: Int) extends Module {
 
 // runMain Rs.GenBm
 object GenBm extends App {
-  val config = JsonReader.readConfig("/home/egorman44/chisel-lib/rs.json")
+  val config = JsonHandler.readConfig("/home/egorman44/chisel-lib/rs.json")
   ChiselStage.emitSystemVerilogFile(new RsBm(config), Array())
 }
 

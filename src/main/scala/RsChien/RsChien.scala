@@ -43,6 +43,6 @@ class RsChien(c: Config) extends Module{
 //
 // runMain Rs.GenChien
 object GenChien extends App{
-  val config = JsonReader.readConfig("/home/egorman44/chisel-lib/rs.json")
+  val config = JsonHandler.readConfig("/home/egorman44/chisel-lib/rs.json")
   ChiselStage.emitSystemVerilogFile(new RsChien(config), Array())
 }

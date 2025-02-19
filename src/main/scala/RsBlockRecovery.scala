@@ -153,10 +153,9 @@ object GenRsBlockRecovery extends App {
   val projectRoot = System.getProperty("project.root")
 
   ConfigParser.parse(args) match {
-    case Some(config) =>
-      JsonHandler.writeToFile(config, "rs.json")
-      val rsCfg = RSDecoderConfigs.getConfig(config.N_LEN, config.K_LEN)
-      val c = Config(config, rsCfg)
+    case Some(cmdConfig) =>
+      JsonHandler.writeToFile(cmdConfig, "rs.json")
+      val c = new Config(cmdConfig)
       //val c = JsonReader.readConfig(projectRoot + "/rs.json")
       ChiselStage.emitSystemVerilogFile(new RsBlockRecovery(c), Array())
     case None =>

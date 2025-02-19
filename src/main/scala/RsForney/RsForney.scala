@@ -152,6 +152,6 @@ class RsForney(c: Config) extends Module {
 // runMain Rs.GenForney
 
 object GenForney extends App {
-  val c = JsonReader.readConfig("/home/egorman44/chisel-lib/rs.json")
+  val c = JsonHandler.readConfig("/home/egorman44/chisel-lib/rs.json")
   ChiselStage.emitSystemVerilogFile(new RsForney(c), Array())  
 }

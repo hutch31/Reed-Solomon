@@ -134,6 +134,7 @@ class ErrataLocatorStage(c: Config) extends Module{
   })
 
   val coefPositionPower = Wire(UInt(c.SYMB_WIDTH.W))
+  dontTouch(coefPositionPower)
 
   coefPositionPower := c.powerFirstRoot(io.coefPosition)
 

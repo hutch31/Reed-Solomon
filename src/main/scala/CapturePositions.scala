@@ -96,8 +96,7 @@ object GenCapturePositions extends App {
     case Some(config) =>
       JsonHandler.writeToFile(config, "rs.json")
       // Get 
-      val rsCfg = RSDecoderConfigs.getConfig(config.N_LEN, config.K_LEN)
-      val c = Config(config, rsCfg)
+      val c = Config(config)
       ChiselStage.emitSystemVerilogFile(new CapturePositions(c), Array())
     case None =>
       sys.exit(1)      
