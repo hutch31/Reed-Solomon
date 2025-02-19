@@ -10,19 +10,25 @@ import play.api.libs.json._
 import scala.io.Source
 
 case class Config(
-  AXIS_CLOCK:Double,
-  CORE_CLOCK:Double,
-  SYMB_WIDTH: Int,
-  BUS_WIDTH: Int,
-  POLY: Int,
-  FCR: Int,
-  N_LEN: Int,
-  K_LEN: Int,
-  REDUNDANCY: Int,
-  T_LEN: Int,
-  rsCfg : RSDecoderConfig,
+  cmdCfg: CmdConfig
 )
 {
+  val AXIS_CLOCK   = cmdCfg.AXIS_CLOCK
+  val CORE_CLOCK   = cmdCfg.CORE_CLOCK
+  val SYMB_WIDTH   = cmdCfg.SYMB_WIDTH
+  val BUS_WIDTH    = cmdCfg.BUS_WIDTH
+  val POLY         = cmdCfg.POLY
+  val FCR          = cmdCfg.FCR
+  val N_LEN        = cmdCfg.N_LEN
+  val K_LEN        = cmdCfg.K_LEN
+  val REDUNDANCY   = N_LEN - K_LEN
+  val T_LEN        = REDUNDANCY/2
+  val SYMB_NUM     = 1 << SYMB_WIDTH
+  val FIELD_CHAR   = SYMB_NUM-1
+  val MSG_DURATION = math.ceil(N_LEN/BUS_WIDTH.toDouble).toInt
+  val CLOCK_RATION = (AXIS_CLOCK/CORE_CLOCK).toDouble
+  val decoderSingleClock = if(CLOCK_RATION == 1.0) true else false
+  val MSG_DURATION_CORE = math.ceil(MSG_DURATION/CLOCK_RATION).toInt
 
   def calcNumStages(comboLen: Int, pipelineInterval: Int): Int = {
     require(comboLen > 0 && pipelineInterval > 0,
@@ -43,14 +49,6 @@ case class Config(
     (TermsPerCycle, ShiftLatency)
   }
 
-  val SYMB_NUM = 1 << SYMB_WIDTH
-  val FIELD_CHAR = SYMB_NUM-1
-  val MSG_DURATION = math.ceil(N_LEN/BUS_WIDTH.toDouble).toInt
-
-  val CLOCK_RATION = (AXIS_CLOCK/CORE_CLOCK).toDouble
-  val decoderSingleClock = if(CLOCK_RATION == 1.0) true else false
-  val MSG_DURATION_CORE = math.ceil(MSG_DURATION/CLOCK_RATION).toInt
-
   //////////////////////////////
   // Syndrome
   //////////////////////////////
@@ -60,7 +58,6 @@ case class Config(
   //////////////////////////////
   // Berlekamp Massey Parameters
   //////////////////////////////
-
 
   // bmTermsPerCycle - defines the number of syndrome terms BM can process in a cycle(calculated sequentially)
   val bmTermsPerCycle = 1
@@ -125,7 +122,7 @@ case class Config(
   // forneyEEXlInvTermsPerCycle - defines number of XlInv terms ErrEvalXlInv block can process in a cycle(calculated in parallel)
   val (forneyEEXlInvTermsPerCycle, forneyEEXlInvShiftLatency) = computeTermsAndLatency(T_LEN, MSG_DURATION_CORE)
   // forneyEEXlInvComboLen - this parameter is used for pipelining the stage of ErrEvalXlInv block. This parameter determines after how many stages a register is inserted.
-  val forneyEEXlInvComboLen = rsCfg.forneyEEXlInvComboLen
+  val forneyEEXlInvComboLen = 1
   //require(forneyEEXlInvComboLen <= T_LEN-1, "ErrEvalXlInvStage combo length more than (T_LEN-1)")
   val forneyEEXlInvQStages = math.ceil((T_LEN)/forneyEEXlInvComboLen.toDouble).toInt
   val forneyEEXlInvShiftLatencyFull = forneyEEXlInvQStages + forneyEEXlInvShiftLatency + 2 // +1 accumVld +1 output reg
@@ -273,7 +270,7 @@ case class Config(
   val FCR_SYMB = genAlphaToSymb()(FCR)
   println(s"GENERATOR_POWER = $GENERATOR_POWER")
   println(s"FCR      = $FCR")
-  println(s"FCR_SYMB = $FCR_SYMB")
+  println(s"FCR_SYMB        = $FCR_SYMB")
   
   def gfMult (symbA: UInt, symbB: UInt) : UInt = {
     val mult = Wire(UInt(SYMB_WIDTH.W))
@@ -376,47 +373,4 @@ case class Config(
     val powFirstRoot = alphaToSymb(powerFirstRootTbl(powOfSymb))
     powFirstRoot
   }
-
-
 }
-
-// Full config objects
-object Config {
-  def apply(jsonConfig: JsonConfig, rsCfg : RSDecoderConfig=RSDecoderConfigs.RS255_239): Config = {
-    val REDUNDANCY = jsonConfig.N_LEN - jsonConfig.K_LEN
-    val T_LEN = REDUNDANCY/2
-    Config(jsonConfig.AXIS_CLOCK, jsonConfig.CORE_CLOCK, jsonConfig.SYMB_WIDTH, jsonConfig.BUS_WIDTH, jsonConfig.POLY, jsonConfig.FCR, jsonConfig.N_LEN, jsonConfig.K_LEN, REDUNDANCY, T_LEN, rsCfg)
-  }
-}
-
-object JsonReader {
-  implicit val configReads: Reads[JsonConfig] = Json.reads[JsonConfig]
-
-  def readConfig(filePath: String): Config = {
-    val source = Source.fromFile(filePath)
-    val jsonString = try source.mkString finally source.close()
-    val jsonConfig = Json.parse(jsonString).as[JsonConfig]
-    Config(jsonConfig)
-  }
-}
-
-// Bundles
-class axisIf(width: Int, symbWidth: Int) extends Bundle {
-  val tdata = Vec(width, UInt(symbWidth.W))
-  val tkeep = UInt(width.W)
-  val tlast = Bool()
-}
-
-class vecFfsIf(width: Int, symbWidth: Int) extends Bundle {
-  val vec = Vec(width, UInt(symbWidth.W))
-  val ffs = UInt(width.W)
-}
-
-class BitPosIf(width: Int) extends Bundle {
-  val valid = Bool()
-  val last  = Bool()
-  val pos   = UInt(width.W)
-}
-
-
-
