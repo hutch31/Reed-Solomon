@@ -268,8 +268,9 @@ case class Config(
   val GENERATOR = 2
   val GENERATOR_POWER = genSymbToAlpha(genAlphaToSymb())(GENERATOR)
   val FCR_SYMB = genAlphaToSymb()(FCR)
+
   println(s"GENERATOR_POWER = $GENERATOR_POWER")
-  println(s"FCR      = $FCR")
+  println(s"FCR             = $FCR")
   println(s"FCR_SYMB        = $FCR_SYMB")
   
   def gfMult (symbA: UInt, symbB: UInt) : UInt = {

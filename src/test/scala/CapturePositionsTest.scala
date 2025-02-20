@@ -11,7 +11,7 @@ class CapturePositionsTest extends AnyFreeSpec with ChiselScalatestTester {
   "CapturePositionsTest" in {
 
     val projectRoot = System.getProperty("project.root")
-    val c = JsonReader.readConfig(projectRoot + "/rs.json")
+    val c = JsonHandler.readConfig(projectRoot + "/rs.json")
 
     test(new CapturePositions(c)).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
       // Reset the DUT (Device Under Test)
