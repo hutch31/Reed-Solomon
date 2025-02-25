@@ -47,7 +47,7 @@ class RsPacketsBuilder():
     def corrupt_msg(self, err_pos, err_val=None):
         self.cor_msg = copy.deepcopy(self.enc_msg)
         self.cor_msg.name = f"cor_msg{self._pkt_cntr}"
-        self.cor_msg.corrupt_pkt(err_pos=err_pos, errors=err_val)
+        self.cor_msg.corrupt_pkt(err_pos=err_pos, err_val=err_val)
         self.cor_msg.compare(self.enc_msg)
         self.cor_msg.print_pkt()
         #print(self.cor_msg.data)
