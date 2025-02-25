@@ -11,33 +11,32 @@ import copy
 
 class RsPacketsBuilder():
 
-    def __init__(self, K_LEN, REDUNDANCY, FCR, msg_patterm='random'):
+    def __init__(self, K_LEN, REDUNDANCY, FCR):
         init_tables()
         self.K_LEN = K_LEN
         self.REDUNDANCY = REDUNDANCY
         self.FCR = FCR
         self._builder = {}
         self._pkt_cntr = None
-        self._msg_pattern = msg_patterm
         self.register_rs_pkt()
 
     # Register packets
     def register_rs_pkt(self):
-        self._builder['sAxisIf'] = self.get_cor_msg
-        self._builder['syndIf'] = self.get_syndrome
-        self._builder['errLocIf'] = self.get_err_locator
-        self._builder['errPosIf'] = self.get_err_pos
-        self._builder['errValIf'] = self.get_err_val
+        self._builder['sAxisIf']     = self.get_cor_msg
+        self._builder['syndIf']      = self.get_syndrome
+        self._builder['errLocIf']    = self.get_err_locator
+        self._builder['errPosIf']    = self.get_err_pos
+        self._builder['errValIf']    = self.get_err_val
         self._builder['errPosOutIf'] = self.get_err_pos
-        self._builder['mAxisIf'] = self.get_enc_msg
+        self._builder['mAxisIf']     = self.get_enc_msg
         
-    def generate_msg(self):
+    def generate_msg(self, msg_pattern='random'):
         if self._pkt_cntr is None:
             self._pkt_cntr = 0
         else:
             self._pkt_cntr += 1
         self.ref_msg = Packet(name=f'ref_msg{self._pkt_cntr}')
-        self.ref_msg.generate(pkt_size=self.K_LEN, pattern=self._msg_pattern, delay=0)
+        self.ref_msg.generate(pkt_size=self.K_LEN, pattern=msg_pattern, delay=0)
         self.ref_msg.print_pkt()
         
     def encode_msg(self):
@@ -45,13 +44,13 @@ class RsPacketsBuilder():
         self.enc_msg = Packet(name=f'enc_msg{self._pkt_cntr}')
         self.enc_msg.write_data(enc_msg, delay=0)
         
-    def corrupt_msg(self, positions, errors=None):
+    def corrupt_msg(self, err_pos, err_val=None):
         self.cor_msg = copy.deepcopy(self.enc_msg)
         self.cor_msg.name = f"cor_msg{self._pkt_cntr}"
-        self.cor_msg.corrupt_pkt(positions=positions, errors=errors)
+        self.cor_msg.corrupt_pkt(err_pos=err_pos, errors=err_val)
         self.cor_msg.compare(self.enc_msg)
         self.cor_msg.print_pkt()
-        print(self.cor_msg.data)
+        #print(self.cor_msg.data)
 
     def debug_msg(self):
         self.get_err_val(1)
@@ -85,6 +84,7 @@ class RsPacketsBuilder():
         err_loc_pkt.write_data(ref_data=error_locator)
         return err_loc_pkt
 
+    # TODO: Use err_pos list instead of reedsolo package.
     def get_err_pos(self):
         syndrome = rs_calc_syndromes(self.cor_msg.data, self.REDUNDANCY, self.FCR)
         print(f"syndrome: {syndrome}")
@@ -110,7 +110,10 @@ class RsPacketsBuilder():
             err_val_pkt = Packet(name=f'err_val_pkt{self._pkt_cntr}')
             err_val_pkt.write_data(ref_data=magnitude)
             if(dbg):
-                print(f"ERROR_LOCATOR = {error_locator}")
+                print(f"[DBG_MSG]")
+                print(f"SYNDROME       = {syndrome}")
+                print(f"ERROR_LOCATOR  = {error_locator}")
                 print(f"ERROR_POSITION = {error_position}")
+                print(f"ERROR_VALUE    = {magnitude}")
             else:
                 return err_val_pkt

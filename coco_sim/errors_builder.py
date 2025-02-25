@@ -2,28 +2,38 @@ import random
 
 class ErrorsBuilder():
 
-    def __init__(self, N_LEN, T_LEN):
-        self.err_positions = []
+    def __init__(self, N_LEN, T_LEN, SYMB_WIDTH):
         self.cntr = 0
         self.T_LEN = T_LEN
         self.N_LEN = N_LEN
-        self._builder = {}
+        self.SYMB_WIDTH = SYMB_WIDTH
+        self._builder_pos = {}
+        self._builder_val = {}
         self.register_builder()
-        
+
+    
     def register_builder(self):
-        self._builder['random_error']     = self.random_error
-        self._builder['cover_all_errors'] = self.cover_all_errors
-        self._builder['cover_all_errors'] = self.cover_all_errors
-        self._builder['error_burst']      = self.error_burst
-        self._builder['static_error']     = self.static_error
-        self._builder['min_max']          = self.min_max
-        self._builder['uncorrupted_msg']  = self.uncorrupted_msg
+        self._builder_pos['random_error']     = self.random_error
+        self._builder_pos['cover_all_errors'] = self.cover_all_errors
+        self._builder_pos['error_burst']      = self.error_burst
+        self._builder_pos['static_error']     = self.static_error
+        self._builder_pos['min_max']          = self.min_max
+        self._builder_pos['uncorrupted_msg']  = self.uncorrupted_msg
+        self._builder_val['random_error_val'] = self.random_error_val
+        self._builder_val['bit_error_val']    = self.bit_error_val
         
-    def generate_error(self, error_type):
-        error_func = self._builder.get(error_type)
-        if not error_func:
-            raise ValueError(f"Not expected value for error_type = {error_type}.")
-        return error_func()
+    def generate_error(self, error_pos_type, error_val_type='random_error_val'):
+        error_pos_func = self._builder_pos.get(error_pos_type)
+        error_val_func = self._builder_val.get(error_val_type)
+        if not error_pos_func:
+            raise ValueError(f"Not expected value for error_pos_type = {error_pos_type}.")
+        if not error_val_func:
+            raise ValueError(f"Not expected value for error_val_type = {error_val_type}.")
+        error_pos = error_pos_func()
+        error_val = error_val_func(len(error_pos))
+        return error_pos, error_val 
+    
+    # Error positions functions
         
     def random_error(self):
         err_num = random.randint(1, self.T_LEN)
@@ -62,6 +72,18 @@ class ErrorsBuilder():
         err_positions = random.sample(range(0, self.N_LEN-self.T_LEN), err_num)
         return err_positions    
 
+    # Error values
+    def random_error_val(self, err_num):
+        err_values = []
+        for i in range(err_num):
+            err_values = random.randint(1, 2** self.SYMB_WIDTH-1)
+
+    def bit_error_val(self, err_num):
+        err_values = []
+        for i in range(err_num):
+            bit_position = random.randint(0, self.symb_width-1)
+            error = 1 << bit_position
+            
 #err_gen = ErrorsBuilder(255, 8)
 #
 #print("RANDOM ERROR:")

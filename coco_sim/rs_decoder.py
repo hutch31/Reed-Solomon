@@ -4,7 +4,7 @@ import argparse
 from config import RsConfig
 import cocotb
 from cocotb.runner import get_runner
-from config import PRJ_DIR, N_LEN, K_LEN, T_LEN, REDUNDANCY, FCR, MSG_DURATION
+from config import PRJ_DIR, N_LEN, K_LEN, T_LEN, REDUNDANCY, FCR, MSG_DURATION, BUS_WIDTH
 import random
 from rs_packets_builder import RsPacketsBuilder
 from rs_interface_builder import RsIfBuilder
@@ -98,14 +98,14 @@ def get_if(top_level):
         raise ValueError(f"Not expected value for top_level = {top_level}")
     return s_if, m_if
 
-async def decoder_test(dut, error_type, pkt_num = 1, flow_ctrl='always_on'):
+async def decoder_test(dut, error_type, pkt_num = 1, flow_ctrl='always_on', msg_pattern='random'):
     
     s_if_containers = []
     m_if_containers = []
     
     if_builder = RsIfBuilder(dut)
 
-    err_builder = ErrorsBuilder(N_LEN, T_LEN)
+    err_builder = ErrorsBuilder(N_LEN, T_LEN, BUS_WIDTH)
     
     # Get interfaces
     s_if_list, m_if_list = get_if(dut._name)
@@ -123,10 +123,10 @@ async def decoder_test(dut, error_type, pkt_num = 1, flow_ctrl='always_on'):
     pkt_builder = RsPacketsBuilder(K_LEN, REDUNDANCY, FCR)
     for i in range(pkt_num):
         err_num = T_LEN
-        err_pos = err_builder.generate_error(error_type)
-        pkt_builder.generate_msg()
+        err_pos, err_val = err_builder.generate_error(error_type)
+        pkt_builder.generate_msg(msg_pattern)
         pkt_builder.encode_msg()
-        pkt_builder.corrupt_msg(err_pos)
+        pkt_builder.corrupt_msg(err_pos, err_val)
         for i in range(len(s_if_containers)):
             s_pkt = pkt_builder.get_pkt(s_if_containers[i].if_name)
             s_pkt.print_pkt()
@@ -136,7 +136,7 @@ async def decoder_test(dut, error_type, pkt_num = 1, flow_ctrl='always_on'):
             if mon_pkt is not None:
                 mon_pkt.print_pkt()
                 m_if_containers[i].if_packets.append(mon_pkt)
-        #pkt_builder.debug_msg()
+        pkt_builder.debug_msg()
         
     # Build environment
     env = RsEnv(dut)
@@ -146,7 +146,7 @@ async def decoder_test(dut, error_type, pkt_num = 1, flow_ctrl='always_on'):
     
 @cocotb.test()
 async def random_error_test(dut):
-    await decoder_test(dut, 'random_error', 20)
+    await decoder_test(dut, 'random_error', 100)
 
 @cocotb.test()
 async def flow_cntr_enable_test(dut):
@@ -167,3 +167,8 @@ async def min_max_test(dut):
 @cocotb.test()
 async def uncorrupted_msg_test(dut):
     await decoder_test(dut, 'uncorrupted_msg', 2*MSG_DURATION)
+
+@cocotb.test()
+async def incr_ptrn_test(dut):
+    await decoder_test(dut, 'random_error', 1,'always_on','increment')
+
