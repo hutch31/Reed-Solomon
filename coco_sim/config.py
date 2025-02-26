@@ -27,16 +27,18 @@ sys.path.append(str(coco_path/'coco_axis'))
 
 ip_params = read_json(PRJ_DIR/'rs.json')
 
-N_LEN = ip_params['N_LEN']
-K_LEN = ip_params['K_LEN']
-REDUNDANCY = ip_params['N_LEN'] - ip_params['K_LEN']
-T_LEN = math.floor(REDUNDANCY/2)
-BUS_WIDTH = ip_params['BUS_WIDTH']
-POLY = ip_params['POLY']
+N_LEN        = ip_params['N_LEN']
+K_LEN        = ip_params['K_LEN']
+REDUNDANCY   = ip_params['N_LEN'] - ip_params['K_LEN']
+T_LEN        = math.floor(REDUNDANCY/2)
+BUS_WIDTH    = ip_params['BUS_WIDTH']
+POLY         = ip_params['POLY']
 MSG_DURATION = math.ceil(N_LEN/BUS_WIDTH)
-FCR = ip_params['FCR']
-AXIS_CLOCK = ip_params['AXIS_CLOCK']
-CORE_CLOCK = ip_params['CORE_CLOCK']
+FCR          = ip_params['FCR']
+SYMB_WIDTH   = ip_params['SYMB_WIDTH']
+AXIS_CLOCK   = ip_params['AXIS_CLOCK']
+CORE_CLOCK   = ip_params['CORE_CLOCK']
+
 if AXIS_CLOCK/CORE_CLOCK == 1.0:
     SINGLE_CLOCK = True
 else:
