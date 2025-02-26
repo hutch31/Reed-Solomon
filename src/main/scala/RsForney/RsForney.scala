@@ -52,7 +52,7 @@ class RsForney(c: Config) extends Module {
   // Modules instantiation
   //////////////////////////////////////
 
-  val errataLoc = Module(new ErrataLoc(c))
+  val errataLoc = Module(new ErrataLocWrap(c))
   val errEval = Module(new ErrEval(c))
   val errEvalXlInv = Module(new ErrEvalXlInv(c))
   val formalDer = Module(new FormalDerivative(c))
@@ -118,7 +118,7 @@ class RsForney(c: Config) extends Module {
     queueXlIfToEv.io.enq.valid := XlInvFfsIf.valid
     queueXlIfToEv.io.enq.bits  := Xl
     // Xl is connected to the shift reg which captures on the errEvalXlInvIf.valid signal
-    queueXlIfToEv.io.deq.ready := errVal.io.errValIf.valid
+    queueXlIfToEv.io.deq.ready := errVal.io.errValShiftCompleted
     errVal.io.Xl               := queueXlIfToEv.io.deq.bits
     val queueXlIfToEvFullWrite = !queueXlIfToEv.io.enq.ready && queueXlIfToEv.io.enq.valid && !reset.asBool
     assert(!queueXlIfToEvFullWrite, "[ERROR] Write error into full queueXlIfToEv FIFO. Encrease FIFO depth.")

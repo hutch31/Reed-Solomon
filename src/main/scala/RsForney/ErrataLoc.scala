@@ -15,7 +15,7 @@ class ErrataLoc(c: Config) extends Module {
   
   // Modules instances
   val stage = for(i <- 0 until c.forneyErrataLocTermsPerCycle) yield Module(new ErrataLocatorStage(c))
-
+  
   // Slice valid bit that goes into comb stage(s)
   val stageOut = Wire(Vec(c.forneyErrataLocTermsPerCycle, (Vec(c.T_LEN+1, UInt(c.SYMB_WIDTH.W)))))
 

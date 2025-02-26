@@ -103,7 +103,7 @@ class ErrVal(c: Config) extends Module {
   io.errValIf.bits.ffs := 0.U
   io.errValIf.valid := lastQ
 
-  io.errValShiftCompleted := shiftMod.io.lastOut
+  io.errValShiftCompleted := io.errEvalXlInvIf.valid //shiftMod.io.lastOut
 
   /////////////////
   // Assert not ready
