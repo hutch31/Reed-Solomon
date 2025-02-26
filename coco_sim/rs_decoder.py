@@ -136,7 +136,7 @@ async def decoder_test(dut, error_type, pkt_num = 1, flow_ctrl='always_on', msg_
             if mon_pkt is not None:
                 mon_pkt.print_pkt()
                 m_if_containers[i].if_packets.append(mon_pkt)
-        pkt_builder.debug_msg()
+        #pkt_builder.debug_msg()
         
     # Build environment
     env = RsEnv(dut)

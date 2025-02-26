@@ -106,7 +106,9 @@ class RsPacketsBuilder():
             error_locator = rs_find_error_locator(syndrome, self.REDUNDANCY)
             error_locator = error_locator[::-1]
             error_position = rs_find_errors(err_loc=error_locator,nmess=len(self.enc_msg.data))
-            _, magnitude = rs_correct_errata(msg_in=self.cor_msg.data, synd=syndrome, err_pos=error_position, fcr=self.FCR)
+            #_, magnitude = rs_correct_errata(msg_in=self.cor_msg.data, synd=syndrome, err_pos=error_position, fcr=self.FCR)
+            magnitude = []
+            raise NotImplementedError("TODO: add err_pos from ErrorsBuilder()")
             err_val_pkt = Packet(name=f'err_val_pkt{self._pkt_cntr}')
             err_val_pkt.write_data(ref_data=magnitude)
             if(dbg):
