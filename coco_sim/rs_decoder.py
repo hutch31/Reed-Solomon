@@ -4,7 +4,7 @@ import argparse
 from config import RsConfig
 import cocotb
 from cocotb.runner import get_runner
-from config import PRJ_DIR, N_LEN, K_LEN, T_LEN, REDUNDANCY, FCR, MSG_DURATION, BUS_WIDTH
+from config import PRJ_DIR, N_LEN, K_LEN, T_LEN, REDUNDANCY, FCR, MSG_DURATION, SYMB_WIDTH
 import random
 from rs_packets_builder import RsPacketsBuilder
 from rs_interface_builder import RsIfBuilder
@@ -105,7 +105,7 @@ async def decoder_test(dut, error_type, pkt_num = 1, flow_ctrl='always_on', msg_
     
     if_builder = RsIfBuilder(dut)
 
-    err_builder = ErrorsBuilder(N_LEN, T_LEN, BUS_WIDTH)
+    err_builder = ErrorsBuilder(N_LEN, T_LEN, SYMB_WIDTH)
     
     # Get interfaces
     s_if_list, m_if_list = get_if(dut._name)
