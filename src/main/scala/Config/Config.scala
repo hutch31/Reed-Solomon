@@ -38,9 +38,8 @@ case class Config(
   }
 
   def computeTermsAndLatency(LEN: Int, MSG_DURATION_CORE: Int): (Int, Int) = {
-    var TermsPerCycle = 0
-    var ShiftLatency = 0
-
+    var TermsPerCycle = 0 // The number of terms the shift module produces in each cycle
+    var ShiftLatency = 0  // The number of cycles it takes the shift module to complete a shift operation
     do {
       TermsPerCycle += 1
       ShiftLatency = math.ceil(LEN / TermsPerCycle.toDouble).toInt
@@ -49,15 +48,15 @@ case class Config(
     (TermsPerCycle, ShiftLatency)
   }
 
-  //////////////////////////////
+  ///////////////////////////////////////////
   // Syndrome
-  //////////////////////////////
+  ///////////////////////////////////////////
 
   val syndPipeEn = true
 
-  //////////////////////////////
+  ///////////////////////////////////////////
   // Berlekamp Massey Parameters
-  //////////////////////////////
+  ///////////////////////////////////////////
 
   // bmTermsPerCycle - defines the number of syndrome terms BM can process in a cycle(calculated sequentially)
   val bmTermsPerCycle = 1
@@ -73,9 +72,9 @@ case class Config(
     rsBmNum += 1
   }
 
-  //////////////////////////////
+  ///////////////////////////////////////////
   // Chien search parameters:
-  //////////////////////////////
+  ///////////////////////////////////////////
 
   // chienPosToNumComboLen - this parameter is used for pipelining the block. This parameter determines after how many stages a register is inserted.
   val chienPosToNumComboLen = 1
@@ -100,25 +99,40 @@ case class Config(
   chienLatencyFull = chienBitPosLatencyFull + chienErrBitPosLatencyFull
   val chienErrBitPosLatency = chienErrBitPosLatencyFull-1
 
-  //////////////////////////////
+  ///////////////////////////////////////////
   // Forney algorithm parameters
-  //////////////////////////////
+  ///////////////////////////////////////////
 
-  val (forneyErrataLocTermsPerCycle, forneyErrataLocShiftLatency) = computeTermsAndLatency(T_LEN, MSG_DURATION_CORE)
+  ///////////////
+  // ErrataLoc
+  //
+  // ErrataLoc is implemented as a feedback accumulator with
+  // forneyErrataLocTermsPerCycle = 1, to relax timing.
+  ///////////////
+  
+  //val (forneyErrataLocTermsPerCycle, forneyErrataLocShiftLatency) = computeTermsAndLatency(T_LEN, MSG_DURATION_CORE)
+  val forneyErrataLocTermsPerCycle = 1
+  val forneyErrataLocShiftLatency = math.ceil(T_LEN / forneyErrataLocTermsPerCycle.toDouble).toInt
   val forneyErrataLocLatencyFull = forneyErrataLocShiftLatency + 1 // +1 output reg
 
-  //////////////////////////////////////
+  var errataLocNum = 1
+
+  while(MSG_DURATION_CORE <= math.ceil(forneyErrataLocLatencyFull/errataLocNum.toDouble).toInt) {
+    errataLocNum += 1
+  }
+
+  ///////////////
   // ErrEval
-  //////////////////////////////////////  
+  ///////////////  
   
   // forneyErrEvalTermsPerCycle - defines number of errata locator terms ErrEval block can process in a cycle(calculated in parallel)
   val (forneyErrEvalTermsPerCycle,forneyErrEvalShiftLatency) = computeTermsAndLatency(T_LEN+1, MSG_DURATION_CORE)
   val forneyErrEvalLatencyFull = forneyErrEvalShiftLatency + 3 // +1 accumVld +1 syndXErrataLocVld +1 errEvalIf.valid
 
-  //////////////////////////////////////
+  ///////////////
   // ErrEvalXlInv
-  //////////////////////////////////////  
-  
+  ///////////////  
+
   // forneyEEXlInvTermsPerCycle - defines number of XlInv terms ErrEvalXlInv block can process in a cycle(calculated in parallel)
   val (forneyEEXlInvTermsPerCycle, forneyEEXlInvShiftLatency) = computeTermsAndLatency(T_LEN, MSG_DURATION_CORE)
   // forneyEEXlInvComboLen - this parameter is used for pipelining the stage of ErrEvalXlInv block. This parameter determines after how many stages a register is inserted.
@@ -127,10 +141,10 @@ case class Config(
   val forneyEEXlInvQStages = math.ceil((T_LEN)/forneyEEXlInvComboLen.toDouble).toInt
   val forneyEEXlInvShiftLatencyFull = forneyEEXlInvQStages + forneyEEXlInvShiftLatency + 2 // +1 accumVld +1 output reg
 
-  //////////////////////////////////////
+  ///////////////
   // formalderivative
-  //////////////////////////////////////
-  
+  ///////////////  
+
   // forneyFdTermsPerCycle - defines number of XlInv terms FormalDerivative block can process in a cycle(calculated in parallel)
   val (forneyFdTermsPerCycle, forneyFdShiftLatency) = computeTermsAndLatency(T_LEN, MSG_DURATION_CORE)  
   val forneyFdStopLimit = forneyFdTermsPerCycle * forneyFdShiftLatency // 8
@@ -140,9 +154,9 @@ case class Config(
 
   val forneyFdFullLatency = forneyFdShiftLatency + forneyFdQStages + 2 // +1 accumVld +1 output reg
 
-  //////////////////////////////////////
-  // Forney ErrVal
-  //////////////////////////////////////
+  ///////////////
+  // ErrVal
+  ///////////////  
 
   val (forneyEvTermsPerCycle,forneyEvShiftLatency)   = computeTermsAndLatency(T_LEN, MSG_DURATION_CORE)
   val forneyEvFullLatency = forneyEvShiftLatency + 1 // +1 accum
@@ -153,10 +167,10 @@ case class Config(
 
   val msgNum = math.ceil((MSG_DURATION + decoderLatencyFullAxisClk)/MSG_DURATION.toDouble).toInt + 1 // +1 to make sure it's enough
 
-  //////////////////////////////////////
+  ///////////////////////////////////////////
   // Check if FIFOs required in Forney
   // block to synchronize data flow
-  //////////////////////////////////////
+  ///////////////////////////////////////////
 
   // If the latency in between RsSyndrome output and ErrEval block > MSG_DURATION,
   // then syndrome value will be updated before it's used in ErrEval block.
@@ -189,10 +203,11 @@ case class Config(
   println(s"decoderSingleClock = $decoderSingleClock")
   println(s"MSG_DURATION      = $MSG_DURATION")
   println(s"MSG_DURATION_CORE = $MSG_DURATION_CORE")
-  println(s"BM latency       = $bmLatencyFull")
-  println(s"BM number        = $rsBmNum")
   println(s"Decoder latency  = $decoderLatencyFull")
   println(s"RsSynd(Out) -> ErrEval(In) Latency = $syndErrEvalLatency")
+  println(s"=== BM ===")
+  println(s"BM latency       = $bmLatencyFull")
+  println(s"BM number        = $rsBmNum")
   println(s"=== CHIEN ===")
   println(s"chienRootsPerCycle        = $chienRootsPerCycle")
   println(s"chienErrBitPosLatencyFull = $chienErrBitPosLatencyFull")
@@ -203,6 +218,7 @@ case class Config(
   println(s"forneyFdFullLatency           = $forneyFdFullLatency")
   println(s"forneyErrataLocTermsPerCycle  = $forneyErrataLocTermsPerCycle")
   println(s"forneyErrataLocLatencyFull    = $forneyErrataLocLatencyFull")
+  println(s"errataLocNum                  = $errataLocNum")
   println(s"forneyErrEvalTermsPerCycle    = $forneyErrEvalTermsPerCycle")
   println(s"forneyErrEvalLatencyFull      = $forneyErrEvalLatencyFull")
   println(s"forneyEEXlInvTermsPerCycle    = $forneyEEXlInvTermsPerCycle")
