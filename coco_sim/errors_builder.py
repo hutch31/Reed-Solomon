@@ -76,8 +76,9 @@ class ErrorsBuilder():
     def random_error_val(self, err_num):
         err_values = []
         for i in range(err_num):
-            err_values = random.randint(1, 2** self.SYMB_WIDTH-1)
-
+            err_values.append(random.randint(1, 2** self.SYMB_WIDTH-1))
+        return err_values
+    
     def bit_error_val(self, err_num):
         err_values = []
         for i in range(err_num):
