@@ -48,6 +48,21 @@ class ErrataLoc(c: Config) extends Module {
 
   val coefPositionShift = shiftMod.io.vecOut.bits.map(_.symb)
 
+  // If errataLocNum > 1, then
+  // ffs is not stable between two consecutive
+  // io.errPosCoefIf.valid signals. Therefore, it needs
+  // to be captured into a register before being provided
+  // to ffsQ. Otherwise, it may capture an incorrect value
+  // from io.errPosCoefIf.bits.ffs.
+
+  val ffsShift = Wire(UInt(c.T_LEN.W))
+
+  if(c.errataLocNum == 1) {
+    ffsShift := io.errPosCoefIf.bits.ffs
+  } else {
+    ffsShift := RegEnable(io.errPosCoefIf.bits.ffs, io.errPosCoefIf.valid)
+  }
+
   ///////////////////////////
   // Capture errataLoc value
   //
@@ -103,7 +118,8 @@ class ErrataLoc(c: Config) extends Module {
   val errataLocQ = Reg(Vec(c.T_LEN+1, UInt(c.SYMB_WIDTH.W)))
 
   when(errPosVldStage.reduce(_ || _) === 1.U && shiftMod.io.vecOut.valid) {
-    ffsQ := io.errPosCoefIf.bits.ffs
+    //ffsQ := io.errPosCoefIf.bits.ffs
+    ffsQ := ffsShift
     if(c.forneyErrataLocTermsPerCycle == 1) {
       errataLocQ := stage(c.forneyErrataLocTermsPerCycle-1).io.errataLoc
     }

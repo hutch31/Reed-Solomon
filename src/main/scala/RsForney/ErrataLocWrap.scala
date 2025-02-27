@@ -15,24 +15,24 @@ class ErrataLocWrap(c: Config) extends Module {
 
   val errataLoc = for (i <- 0 until c.errataLocNum) yield Module (new ErrataLoc(c))
 
-  val errataLocValid = Wire(UInt(c.errataLocNum.W))
-  val errataLocSel = Wire(UInt(c.errataLocNum.W))
-  val errataLocSelQ = RegInit(UInt(c.errataLocNum.W), 1.U)
-
+  val errPosSel = Wire(UInt(c.errataLocNum.W))
+  val errPosSelQ = RegInit(UInt(c.errataLocNum.W), 1.U)
+  
   when(io.errPosCoefIf.valid) {
-    errataLocSel := (errataLocSelQ << 1) | (errataLocSelQ >> (c.errataLocNum-1))
-    errataLocSelQ := errataLocSel
+    errPosSel := (errPosSelQ << 1) | (errPosSelQ >> (c.errataLocNum-1))
+    errPosSelQ := errPosSel
   }.otherwise{
-    errataLocSel := errataLocSelQ
+    errPosSel := errPosSelQ
   }
 
-  if(c.errataLocNum == 1) errataLocValid := io.errPosCoefIf.valid
-  else errataLocValid := errataLocSel & Fill(c.errataLocNum, io.errPosCoefIf.valid)
+  val errPosCoefVld = Wire(UInt(c.errataLocNum.W))  
+  if(c.errataLocNum == 1) errPosCoefVld := io.errPosCoefIf.valid
+  else errPosCoefVld := errPosSel & Fill(c.errataLocNum, io.errPosCoefIf.valid)
 
-
+  // Input ports connection
   for(i <- 0 until c.errataLocNum) {
     errataLoc(i).io.errPosCoefIf.bits := io.errPosCoefIf.bits
-    errataLoc(i).io.errPosCoefIf.valid := errataLocValid(i)
+    errataLoc(i).io.errPosCoefIf.valid := errPosCoefVld(i)
   }
 
   val errLocSel = Wire(UInt(c.errataLocNum.W))
