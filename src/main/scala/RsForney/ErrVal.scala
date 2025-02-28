@@ -108,7 +108,7 @@ class ErrVal(c: Config) extends Module {
   /////////////////
   // Assert not ready
   /////////////////
-  val notReadyAssrt = Module(new NotReadyAssrt())
+  val notReadyAssrt = Module(new NotReadyAssrt(true))
   notReadyAssrt.io.start := io.errEvalXlInvIf.valid
   notReadyAssrt.io.stop := shiftMod.io.lastOut
 

@@ -35,12 +35,15 @@ class FormalDerivative(c: Config) extends Module {
   val lastCycleFd0 = Wire(Bool())
 
   // cntr controls pipe execution
+  val shiftFfs = RegEnable(io.XlInvIf.bits.ffs, io.XlInvIf.valid)
+
   val cntr = RegInit(UInt(log2Ceil(c.forneyFdStopLimit).W), 0.U)
 
+  
   // If there is no pipeline
   if(c.forneyFdTermsPerCycle == c.T_LEN) {
     cntr := 0.U
-    lastCycleFd0 := RegNext(next=io.XlInvIf.valid, init=false.B)
+    lastCycleFd0 := RegNext(next=io.XlInvIf.valid, init=false.B)    
   } else {
     val start_cntr = RegNext(next=io.XlInvIf.valid, init=false.B)
     when(start_cntr){
@@ -62,8 +65,10 @@ class FormalDerivative(c: Config) extends Module {
 
   val deleteItem = for(i <- 0 until c.forneyFdTermsPerCycle) yield Module(new DeleteItem(c.T_LEN, c.SYMB_WIDTH))
 
+  val XlWire = RegEnable(io.Xl, io.XlInvIf.valid)
   for(i <- 0 until c.forneyFdTermsPerCycle) {
-    deleteItem(i).io.in := io.Xl
+    //deleteItem(i).io.in := io.Xl
+    deleteItem(i).io.in := XlWire
     deleteItem(i).io.sel := cntr+i.U
     for(j <- 0 until c.T_LEN-1) {
       XlMultXlInv(i)(j) := c.gfMult(deleteItem(i).io.out(j), XlInvShift(i)) ^ 1.U
@@ -73,7 +78,7 @@ class FormalDerivative(c: Config) extends Module {
   // Capture result into the registers
   val XlMultXlInvQ = RegNext(XlMultXlInv)
   val XlmultxlinvLastQ = RegNext(lastCycleFd0, init=false.B)
-  val XlmultxlinvFfsQ = RegEnable(io.XlInvIf.bits.ffs, lastCycleFd0)
+  val XlmultxlinvFfsQ = RegEnable(shiftFfs, lastCycleFd0)
 
   /////////////////////////////////
   // FD stage
@@ -114,9 +119,14 @@ class FormalDerivative(c: Config) extends Module {
   /////////////////
   // Assert not ready
   /////////////////
-  val notReadyAssrt = Module(new NotReadyAssrt())
-  notReadyAssrt.io.start := io.XlInvIf.valid
-  notReadyAssrt.io.stop := lastCycleFd0
+  val notReadyAssrt = Module(new NotReadyAssrt(true))
+  if(c.T_LEN == 1) {
+    notReadyAssrt.io.start := false.B
+    notReadyAssrt.io.stop := false.B
+  } else {
+    notReadyAssrt.io.start := io.XlInvIf.valid
+    notReadyAssrt.io.stop := lastCycleFd0
+  }
 
 }
 
