@@ -88,14 +88,14 @@ case class Config(
 
   do {
     chienRootsPerCycle += 8
-    chienErrBitPosLatencyFull = math.ceil((SYMB_NUM-1)/chienRootsPerCycle.toDouble).toInt-1+1 // -1 since it's started same cycle when errLocIf_valid = 1
+    chienErrBitPosLatencyFull = math.ceil((N_LEN)/chienRootsPerCycle.toDouble).toInt-1+1 // -1 since it's started same cycle when errLocIf_valid = 1
   } while(MSG_DURATION_CORE <= chienErrBitPosLatencyFull)
 
   val chienBitPosPipeIntrvl = 4
   val chienBitPosPipeNumStages = calcNumStages(chienRootsPerCycle, chienBitPosPipeIntrvl)
   val chienBitPosLatencyFull = chienBitPosPipeNumStages + 1 + 1 + math.ceil(FIELD_CHAR/chienRootsPerCycle).toInt
 
-  chienErrBitPosLatencyFull = math.ceil((SYMB_NUM-1)/chienRootsPerCycle.toDouble).toInt-1+1 // -1 since it's started same cycle when errLocIf_valid = 1
+  chienErrBitPosLatencyFull = math.ceil((N_LEN)/chienRootsPerCycle.toDouble).toInt-1+1 // -1 since it's started same cycle when errLocIf_valid = 1
   chienLatencyFull = chienBitPosLatencyFull + chienErrBitPosLatencyFull
   val chienErrBitPosLatency = chienErrBitPosLatencyFull-1
 
