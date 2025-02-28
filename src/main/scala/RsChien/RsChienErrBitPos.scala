@@ -12,7 +12,8 @@ class RsChienErrBitPos(c: Config) extends Module{
     val bitPos = Output(new BitPosIf(c.chienRootsPerCycle))
   })
   // Localparams
-  val rootsNum = c.SYMB_NUM - 1
+  //val rootsNum = c.SYMB_NUM - 1
+  val rootsNum = c.N_LEN
   val chienNonValid = ((BigInt(1) << (rootsNum % c.chienRootsPerCycle)) -1)
 
   // TODO: Create the PolyEval depends on the input param
