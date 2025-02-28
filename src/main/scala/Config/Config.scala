@@ -43,7 +43,7 @@ case class Config(
     do {
       TermsPerCycle += 1
       ShiftLatency = math.ceil(LEN / TermsPerCycle.toDouble).toInt
-    } while (MSG_DURATION_CORE <= ShiftLatency)
+    } while (MSG_DURATION_CORE < ShiftLatency)
 
     (TermsPerCycle, ShiftLatency)
   }
