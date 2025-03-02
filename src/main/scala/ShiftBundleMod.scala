@@ -31,9 +31,9 @@ class ShiftBundleMod[T <: Data](shiftUnit: T, width: Int, shiftVal: Int, shiftCn
   }
 
   if(shiftVal == width) {
-    io.vecOut.bits := io.vecIn.bits
-    io.lastOut := io.vecIn.valid
-    io.vecOut.valid := io.vecIn.valid
+    io.vecOut.bits := RegNext(next=io.vecIn.bits)
+    io.lastOut := RegNext(next=io.vecIn.valid)
+    io.vecOut.valid := RegNext(next=io.vecIn.valid, init=false.B)
   } else {
 
     val vldWidth  = math.ceil(width/shiftVal.toDouble).toInt
