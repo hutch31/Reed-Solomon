@@ -33,7 +33,7 @@ class ErrEval(c: Config) extends Module{
     stageOut(i) := stage(i).io.syndXErrataLoc
   }
 
-  // Capture ffs 
+  // Capture ffs
   val shiftFfs = Wire(UInt((c.T_LEN+1).W))
   if(c.forneyErrEvalTermsPerCycle == c.T_LEN+1)
     shiftFfs := io.errataLocIf.bits.ffs
@@ -102,7 +102,7 @@ class ErrEval(c: Config) extends Module{
   /////////////////
   // Assert not ready
   /////////////////
-  val notReadyAssrt = Module(new NotReadyAssrt())
+  val notReadyAssrt = Module(new NotReadyAssrt(true))
   notReadyAssrt.io.start := io.errataLocIf.valid
   notReadyAssrt.io.stop := shiftVec.io.lastOut
 
