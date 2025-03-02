@@ -11,14 +11,14 @@ import chisel3.util._
 
 class RsChienBitPosToNum(c: Config) extends Module{
   val io = IO(new Bundle {
-    val bitPos = Input(new BitPosIf(c.chienRootsPerCycle))
+    val bitPos = Input(new BitPosIf(c.chienErrBitPosTermsPerCycle))
     val errPosIf = Output(Valid(new vecFfsIf(c.T_LEN, c.SYMB_WIDTH)))
   })
 
   val base = RegInit(UInt(c.SYMB_WIDTH.W), 0.U)
 
   when(io.bitPos.valid){
-    base := base + c.chienRootsPerCycle
+    base := base + c.chienErrBitPosTermsPerCycle
   }.otherwise{
     base := 0
   }
@@ -27,7 +27,7 @@ class RsChienBitPosToNum(c: Config) extends Module{
   // Pipelining FFS logic
   //////////////////////////////
   class PosBaseVld() extends Bundle {
-    val pos = UInt(c.chienRootsPerCycle.W)
+    val pos = UInt(c.chienErrBitPosTermsPerCycle.W)
     val base = UInt(c.SYMB_WIDTH.W)
     val valid = Bool()
   }
@@ -53,7 +53,7 @@ class RsChienBitPosToNum(c: Config) extends Module{
 
   for(i <- 1 until c.T_LEN) {
     if(i % c.chienPosToNumComboLen == 0){
-      val bitPosQ = Reg(UInt(c.chienRootsPerCycle.W))
+      val bitPosQ = Reg(UInt(c.chienErrBitPosTermsPerCycle.W))
       val baseQ = Reg(UInt(c.SYMB_WIDTH.W))
       val lastQ = Reg(Bool())
       val validQ = RegInit(Bool(), false.B)
@@ -97,8 +97,8 @@ class RsChienBitPosToNum(c: Config) extends Module{
     }.otherwise{
       stageCapt(i).valid := 0
     }
-    val baseArray = Wire(Vec(c.chienRootsPerCycle, UInt(c.SYMB_WIDTH.W)))
-    for(k <- 0 until c.chienRootsPerCycle) {
+    val baseArray = Wire(Vec(c.chienErrBitPosTermsPerCycle, UInt(c.SYMB_WIDTH.W)))
+    for(k <- 0 until c.chienErrBitPosTermsPerCycle) {
       baseArray(k) := stageCapt(i).base + k.U
     }
     errPos(i) := c.N_LEN - 1 - Mux1H(stageCapt(i).pos, baseArray)
@@ -128,13 +128,13 @@ class RsChienBitPosToNum(c: Config) extends Module{
 
 class RsChienPosOh(c: Config) extends Module{
   val io = IO(new Bundle {
-    val bitPos = Input(UInt(c.chienRootsPerCycle.W))
+    val bitPos = Input(UInt(c.chienErrBitPosTermsPerCycle.W))
     val bypass = Input(Bool())
-    val lsbPos = Output(UInt(c.chienRootsPerCycle.W))
-    val lsbPosXor = Output(UInt(c.chienRootsPerCycle.W))
+    val lsbPos = Output(UInt(c.chienErrBitPosTermsPerCycle.W))
+    val lsbPosXor = Output(UInt(c.chienErrBitPosTermsPerCycle.W))
   })
 
-  val ffs = Module(new FindFirstSetNew(width=c.chienRootsPerCycle, lsbFirst=true))
+  val ffs = Module(new FindFirstSetNew(width=c.chienErrBitPosTermsPerCycle, lsbFirst=true))
   ffs.io.in := io.bitPos
 
   when(io.bypass === 1.U){

@@ -6,7 +6,7 @@ import chisel3.util._
 
 class CapturePositions(c:Config) extends Module {
   val io = IO(new Bundle {
-    val bitPos = Input(new BitPosIf(c.chienRootsPerCycle))
+    val bitPos = Input(new BitPosIf(c.chienErrBitPosTermsPerCycle))
     val errPosIf = Output(Valid(new vecFfsIf(c.T_LEN, c.SYMB_WIDTH)))    
   })
 
@@ -22,7 +22,7 @@ class CapturePositions(c:Config) extends Module {
   // bit vector where bits are asserted
   ////////////////////////////////
 
-  val extrPos = Module(new ExtractPositions(c.chienRootsPerCycle, c.T_LEN, 4))
+  val extrPos = Module(new ExtractPositions(c.chienErrBitPosTermsPerCycle, c.T_LEN, 4))
   val numStages = extrPos.numStages + 1
 
   extrPos.io.in.bits := io.bitPos.pos
@@ -62,7 +62,7 @@ class CapturePositions(c:Config) extends Module {
       baseCntr := 0.U
       baseVec.foreach(x => x := 0.U.asTypeOf(new PositionsVld))
     }.otherwise{
-      baseCntr := baseCntr + c.chienRootsPerCycle.U
+      baseCntr := baseCntr + c.chienErrBitPosTermsPerCycle.U
       // Capture only valid output
       for(i <- 0 until c.T_LEN) {
         baseVec(i).vld := insertVec.io.vecOut(i).vld
