@@ -91,9 +91,7 @@ case class Config(
 
   val chienErrBitPosLatencyFull = chienErrBitPosShiftLatency + 1
   val chienLatencyFull = chienBitPosLatencyFull + chienErrBitPosLatencyFull
-
-  val cntrUpLimit = chienErrBitPosShiftLatency*chienErrBitPosTermsPerCycle
-
+  
   ///////////////////////////////////////////
   // Forney algorithm parameters
   ///////////////////////////////////////////

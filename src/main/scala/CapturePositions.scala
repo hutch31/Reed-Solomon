@@ -21,8 +21,9 @@ class CapturePositions(c:Config) extends Module {
   // Extract position from incomming 
   // bit vector where bits are asserted
   ////////////////////////////////
+  val PosNum = if(c.T_LEN > c.chienErrBitPosTermsPerCycle) c.chienErrBitPosTermsPerCycle else c.T_LEN
+  val extrPos = Module(new ExtractPositions(c.chienErrBitPosTermsPerCycle, PosNum, 4))
 
-  val extrPos = Module(new ExtractPositions(c.chienErrBitPosTermsPerCycle, c.T_LEN, 4))
   val numStages = extrPos.numStages + 1
 
   extrPos.io.in.bits := io.bitPos.pos
@@ -73,9 +74,16 @@ class CapturePositions(c:Config) extends Module {
     }
   }
 
-  for(i <- 0 until c.T_LEN) {
-    vecIn(i).positions := extrPos.io.positions(i) + baseCntr
-    vecIn(i).vld := extrPos.io.outTkeep(i)
+  // If T_LEN > chienErrBitPosTermsPerCycle,
+  // then we need to padd vecIn
+  for(i <- 0 until c.T_LEN) {    
+    if(i >= c.chienErrBitPosTermsPerCycle) {
+      vecIn(i) := zeroUnit
+    }
+    else {
+      vecIn(i).positions := extrPos.io.positions(i) + baseCntr
+      vecIn(i).vld := extrPos.io.outTkeep(i)
+    }
   }
 
   when(lastQ(numStages-1)){

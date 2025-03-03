@@ -84,9 +84,11 @@ class ExtractPositions(val InWidth: Int, val PosNum: Int, val pipelineInterval: 
   }
 
   // Assign positions
+  // InWidth = chienErrBitPosTermsPerCycle
+  // PosNum = T_LEN
   for (i <- 0 until InWidth) {
-    when(inOut.asBools(i) && prefSumOut(i) < PosNum.U) {
-      val index = prefSumOut(i)(log2Ceil(PosNum)-1, 0) // Truncate prefSumOut(i) to the correct width
+    when(inOut(i) && prefSumOut(i) < PosNum.U) {
+      val index = prefSumOut(i)(log2Ceil(InWidth)-1, 0) // Truncate prefSumOut(i) to the correct width
       positionsReg(index) := i.U
       outTkeepReg(index) := true.B
     }
