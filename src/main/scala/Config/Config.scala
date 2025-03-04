@@ -68,7 +68,7 @@ case class Config(
 
   var rsBmNum = 1
 
-  while(MSG_DURATION <= math.ceil(bmLatencyFull/rsBmNum.toDouble).toInt) {
+  while(MSG_DURATION < math.ceil(bmShiftLatency/rsBmNum.toDouble).toInt) {
     rsBmNum += 1
   }
 
@@ -91,7 +91,7 @@ case class Config(
 
   val chienErrBitPosLatencyFull = chienErrBitPosShiftLatency + 1
   val chienLatencyFull = chienBitPosLatencyFull + chienErrBitPosLatencyFull
-  
+
   ///////////////////////////////////////////
   // Forney algorithm parameters
   ///////////////////////////////////////////
@@ -110,7 +110,7 @@ case class Config(
 
   var errataLocNum = 1
 
-  while(MSG_DURATION_CORE <= math.ceil(forneyErrataLocLatencyFull/errataLocNum.toDouble).toInt) {
+  while(MSG_DURATION_CORE < math.ceil(forneyErrataLocLatencyFull/errataLocNum.toDouble).toInt) {
     errataLocNum += 1
   }
 
@@ -199,13 +199,13 @@ case class Config(
   println(s"Decoder latency  = $decoderLatencyFull")
   println(s"RsSynd(Out) -> ErrEval(In) Latency = $syndErrEvalLatency")
   println(s"=== BM ===")
-  println(s"BM latency       = $bmLatencyFull")
-  println(s"BM number        = $rsBmNum")
+  println(s"bmLatencyFull                 = $bmLatencyFull")
+  println(s"rsBmNum                       = $rsBmNum")
   println(s"=== CHIEN ===")
-  println(s"chienErrBitPosTermsPerCycle = $chienErrBitPosTermsPerCycle")
-  println(s"chienErrBitPosLatencyFull   = $chienErrBitPosLatencyFull")
-  println(s"chienBitPosLatencyFull      = $chienBitPosLatencyFull")
-  println(s"chienLatencyFull            = $chienLatencyFull")
+  println(s"chienErrBitPosTermsPerCycle   = $chienErrBitPosTermsPerCycle")
+  println(s"chienErrBitPosLatencyFull     = $chienErrBitPosLatencyFull")
+  println(s"chienBitPosLatencyFull        = $chienBitPosLatencyFull")
+  println(s"chienLatencyFull              = $chienLatencyFull")
   println(s"=== FORNEY ===")
   println(s"forneyFdTermsPerCycle         = $forneyFdTermsPerCycle")
   println(s"forneyFdFullLatency           = $forneyFdFullLatency")
