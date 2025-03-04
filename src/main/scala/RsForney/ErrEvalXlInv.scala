@@ -19,14 +19,8 @@ class ErrEvalXlInv(c: Config) extends Module {
   shiftVec.io.vecIn.valid := io.errEvalIf.valid
 
   // Capture errEvalIf
-  val errEvalIfBits = Wire(new vecFfsIf(c.T_LEN+1, c.SYMB_WIDTH))
-  if(c.forneyErrEvalTermsPerCycle == c.T_LEN+1){
-    errEvalIfBits := io.errEvalIf.bits
-  }
-  else {
-    errEvalIfBits := RegEnable(io.errEvalIf.bits, io.errEvalIf.valid)
-  }
-
+  val errEvalIfBits = RegEnable(io.errEvalIf.bits, io.errEvalIf.valid)
+ 
   for(i <- 0 until c.forneyEEXlInvTermsPerCycle) {
     //stage(i).io.errEvalIf := io.errEvalIf.bits
     stage(i).io.errEvalIf := errEvalIfBits
