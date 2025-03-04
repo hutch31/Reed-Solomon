@@ -159,9 +159,10 @@ class RsBm(c: Config) extends Module {
   /////////////////
   // Assert not ready
   /////////////////
-  val notReadyAssrt = Module(new NotReadyAssrt())
+  val notReadyAssrt = Module(new NotReadyAssrt(true))
   notReadyAssrt.io.start := io.syndIf.valid
-  notReadyAssrt.io.stop := io.errLocIf.valid
+  //notReadyAssrt.io.stop := io.errLocIf.valid
+  notReadyAssrt.io.stop := lastOut
 
 }
 
