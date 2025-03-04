@@ -57,7 +57,15 @@ class RsSyndPolyEval(c: Config) extends Module{
     sAxisTkeep := io.sAxisIf.bits.tkeep
   }
 
-  termsSumVec := (stageOut zip sAxisTkeep.asTypeOf(Vec(c.BUS_WIDTH, Bool()))).map{case(a,b) => a & Fill(c.SYMB_WIDTH,b) }
+  //termsSumVec := (stageOut zip sAxisTkeep.asTypeOf(Vec(c.BUS_WIDTH, Bool()))).map{case(a,b) => a & Fill(c.SYMB_WIDTH,b) }
+  for(i <- 0 until c.BUS_WIDTH) {
+    when(sAxisTkeep(i) === 1.U){
+      termsSumVec(i) := stageOut(i)
+    }.otherwise{
+      termsSumVec(i) := 0.U
+    }
+  }
+
   termSum := termsSumVec.reduce(_^_)
 
   when(accumVld) {
