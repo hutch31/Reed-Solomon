@@ -14,16 +14,12 @@ class ExtractPositions(val InWidth: Int, val PosNum: Int, val pipelineInterval: 
 
   // Number of pipeline stages required
   val numStages = (InWidth + pipelineInterval - 1) / pipelineInterval
-
-  // Convert input to a vector of Bools
-  val inVec = io.in.bits.asBools
-
+  
   val prefSumOut = Wire(Vec(InWidth, UInt(log2Ceil(InWidth).W)))
   val prefSumVldOut = Wire(Bool())
   
   val inOut = Wire(UInt(InWidth.W))
   val inQ = Reg(Vec(numStages, (UInt(InWidth.W))))
-  val inVecQ = Reg(Vec(numStages, (Vec(InWidth, Bool()))))
 
   val prefSumQ = Reg(Vec(numStages, Vec(InWidth, UInt(log2Ceil(InWidth).W))))
   val vldQ = RegInit(VecInit(Seq.fill(numStages)(false.B)))
@@ -35,7 +31,10 @@ class ExtractPositions(val InWidth: Int, val PosNum: Int, val pipelineInterval: 
     val prefSum = Wire(Vec(InWidth, UInt(log2Ceil(InWidth).W)))
 
     if(stage == 0) {
-      prefSumInit := VecInit(inVec.map(b => Mux(b, 1.U, 0.U)))
+      for (i <- 0 until InWidth) {
+        prefSumInit(i) := Mux(io.in.bits(i), 1.U, 0.U)
+      }
+      //prefSumInit := VecInit(inVec.map(b => Mux(b, 1.U, 0.U)))
     } else {
       prefSumInit := prefSumQ(stage-1)
     }
