@@ -37,7 +37,7 @@ class RsBm(c: Config) extends Module {
   // Shift 
   ///////////////////////////
 
-  val shiftMod = Module(new ShiftBundleMod(new ShiftUnit, width=c.REDUNDANCY, shiftVal=c.bmTermsPerCycle, shiftCntrLimit=c.bmShiftLimit))
+  val shiftMod = Module(new ShiftBundleMod(new ShiftUnit, width=c.REDUNDANCY, shiftVal=c.bmTermsPerCycle, interTermDelay=c.bmShiftLimit))
 
   class ShiftUnit extends Bundle {
     val syndInv = Vec(c.T_LEN+1, UInt(c.SYMB_WIDTH.W))
@@ -73,7 +73,7 @@ class RsBm(c: Config) extends Module {
 
   val lastOutQ = RegNext(shiftMod.io.lastOut, false.B)
   val lastOut = Wire(Bool())
-
+  
   // lastOut should be one cycle
   if(c.bmStagePipeEn){
     lastOut := ~lastOutQ & shiftMod.io.lastOut

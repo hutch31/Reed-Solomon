@@ -85,7 +85,7 @@ case class Config(
   val chienHorner = false // TODO: add substitution for Horner PolyEval
   val(chienErrBitPosTermsPerCycle, chienErrBitPosShiftLatency) = computeTermsAndLatency(N_LEN, MSG_DURATION_CORE, 4)
 
-  val chienBitPosPipeIntrvl = 4
+  val chienBitPosPipeIntrvl = 10
   val chienBitPosPipeNumStages = calcNumStages(chienErrBitPosTermsPerCycle, chienBitPosPipeIntrvl)
   val chienBitPosLatencyFull = chienBitPosPipeNumStages + 1 + 1 + math.ceil(FIELD_CHAR/chienErrBitPosTermsPerCycle).toInt
 
@@ -189,16 +189,23 @@ case class Config(
   val FdToEvFifoEn = if (FdToEvLatencyAxisClk >= MSG_DURATION) true else false
   val FdToEvFifoDepth = math.ceil(FdToEvLatencyAxisClk/MSG_DURATION.toDouble).toInt+1
 
-  println(s"T_LEN = $T_LEN")
-  println(s"AXIS_CLOCK = $AXIS_CLOCK")
-  println(s"CORE_CLOCK = $CORE_CLOCK")
-  println(s"CLOCK_RATION = $CLOCK_RATION")
-  println(s"decoderSingleClock = $decoderSingleClock")
-  println(s"MSG_DURATION      = $MSG_DURATION")
-  println(s"MSG_DURATION_CORE = $MSG_DURATION_CORE")
-  println(s"Decoder latency  = $decoderLatencyFull")
-  println(s"RsSynd(Out) -> ErrEval(In) Latency = $syndErrEvalLatency")
+  println(s"=== RS code config === ")
+  println(s"N_LEN                         = $N_LEN")
+  println(s"K_LEN                         = $K_LEN")
+  println(s"REDUNDANCY                    = $REDUNDANCY")
+  println(s"T_LEN                         = $T_LEN")
+  println(s"POLY                          = $POLY")
+  println(s"=== Decoder config === ")
+  println(s"AXIS_CLOCK                    = $AXIS_CLOCK")
+  //println(s"CORE_CLOCK                  = $CORE_CLOCK")
+  //println(s"CLOCK_RATION                = $CLOCK_RATION")
+  println(s"decoderSingleClock            = $decoderSingleClock")
+  println(s"MSG_DURATION                  = $MSG_DURATION")
+  //println(s"MSG_DURATION_CORE           = $MSG_DURATION_CORE")
+  println(s"Decoder latency               = $decoderLatencyFull")
   println(s"=== BM ===")
+  println(s"bmTermsPerCycle               = $bmTermsPerCycle")
+  println(s"bmStagePipeEn                 = $bmStagePipeEn")
   println(s"bmLatencyFull                 = $bmLatencyFull")
   println(s"rsBmNum                       = $rsBmNum")
   println(s"=== CHIEN ===")

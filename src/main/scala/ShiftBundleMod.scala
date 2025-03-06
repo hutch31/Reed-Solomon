@@ -3,7 +3,12 @@ package Rs
 import chisel3._
 import chisel3.util._
 
-class ShiftBundleMod[T <: Data](shiftUnit: T, width: Int, shiftVal: Int, shiftCntrLimit: Int=0) extends Module{
+// interTermDelay is used to specify the pause (in cycles) between consecutive valid terms of the output signal. It helps handle the multicycle latency of the logic connected to the output of shiftBundleMod.
+//   interTermDelay = 0: The block produces terms back-to-back on the output interface;
+//   interTermDelay = 1: There is a single-cycle pause between two consecutive terms of the output signal;
+//   etc
+
+class ShiftBundleMod[T <: Data](shiftUnit: T, width: Int, shiftVal: Int, interTermDelay: Int=0) extends Module{
   require(shiftVal <= width, "[ERROR] ShiftBundle. Wrong shiftVal compared to the width.")
   val io = IO(new Bundle {
     val vecIn = Input(Valid(Vec(width, shiftUnit)))
@@ -14,20 +19,21 @@ class ShiftBundleMod[T <: Data](shiftUnit: T, width: Int, shiftVal: Int, shiftCn
   val shiftCntrQ = RegInit(UInt(log2Ceil(width).W), 0.U)
   val shiftEn = Wire(UInt(1.W))
 
+  //
   when(io.vecIn.valid) {
     shiftCntrQ := 0.U
   }.otherwise{
-    when(shiftCntrQ === shiftCntrLimit.U) {
+    when(shiftCntrQ === interTermDelay.U) {
       shiftCntrQ := 0.U
     }.otherwise {
       shiftCntrQ := shiftCntrQ + 1.U
     }
   }
 
-  if(shiftCntrLimit == 0){
+  if(interTermDelay == 0){
     shiftEn := 1.U
   }else{
-    shiftEn := (shiftCntrQ === shiftCntrLimit.U)
+    shiftEn := (shiftCntrQ === interTermDelay.U)
   }
 
   if(shiftVal == width) {
@@ -43,7 +49,7 @@ class ShiftBundleMod[T <: Data](shiftUnit: T, width: Int, shiftVal: Int, shiftCn
     // Load data into the shift register
     when(io.vecIn.valid) {
       dataShift := io.vecIn.bits
-      vldShift := ((1<<vldWidth)-1).U
+      vldShift := ((BigInt(1)<<vldWidth)-1).U
     }.elsewhen(shiftEn === 1.U) {
       vldShift := vldShift >> 1
       for(i <- 0 until width-shiftVal)
