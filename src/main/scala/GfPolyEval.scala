@@ -112,7 +112,7 @@ class GfPolyEval(c: Config, vecLen: Int, selEn: Boolean=false) extends Module {
 
   val stageOut = Wire(Vec(vecLen, UInt(c.SYMB_WIDTH.W)))
   for(i <- 0 until vecLen) {
-    val xPower = c.gfPow(io.x, (vecLen-1-i).U)
+    val xPower = c.gfPow(io.x, (vecLen-1-i))
     stageOut(i) := c.gfMult(io.coefVec.bits(i), xPower)
   }
 
