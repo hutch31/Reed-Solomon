@@ -1,3 +1,13 @@
+/*
+ * ----------------------------------------------------------------------
+ *  Copyright (c) 2024 Egor Smirnov
+ *
+ *  Licensed under terms of the MIT license
+ *  See https://github.com/egorman44/Reed-Solomon/blob/main/LICENSE
+ *    for license terms
+ * ----------------------------------------------------------------------
+ */
+
 // TODO: Check usage (_||_) vs (_|_)
 // TODO: rename symb-width > symb-width-bits and bus-width > bus-width-bytes
 package Rs
