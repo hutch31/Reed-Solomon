@@ -1,3 +1,11 @@
+# ----------------------------------------------------------------------
+#  Copyright (c) 2024 Egor Smirnov
+#
+#  Licensed under terms of the MIT license
+#  See https://github.com/egorman44/Reed-Solomon/blob/main/LICENSE
+#    for license terms
+# ----------------------------------------------------------------------
+
 import cocotb
 from cocotb.triggers import Timer
 from cocotb.triggers import Join
