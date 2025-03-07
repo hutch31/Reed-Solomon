@@ -300,7 +300,8 @@ case class Config(
   println(s"GENERATOR_POWER = $GENERATOR_POWER")
   println(s"FCR             = $FCR")
   println(s"FCR_SYMB        = $FCR_SYMB")
-  
+
+  def modulo(a : UInt, b : Int) : UInt = Mux(a >= b.U, a - b.U, a)
   def gfMult (symbA: UInt, symbB: UInt) : UInt = {
     val mult = Wire(UInt(SYMB_WIDTH.W))
     val alphaSum = Wire(UInt(SYMB_WIDTH.W))
@@ -308,7 +309,7 @@ case class Config(
     val alphaB = Wire(UInt(SYMB_WIDTH.W))
     alphaA := symbToAlpha(symbA)
     alphaB := symbToAlpha(symbB)
-    alphaSum := (alphaA + alphaB) % FIELD_CHAR.U
+    alphaSum := modulo(alphaA + alphaB, FIELD_CHAR)
     when((symbA === 0.U) | (symbB === 0.U)){
       mult := 0.U
     }.otherwise{
@@ -321,7 +322,7 @@ case class Config(
     val alphaDivd = symbToAlpha(dividend)
     val alphaDvdr = symbToAlpha(divider)
     // TODO: use +& instead of implicit cast.
-    val alphaDiff = (FIELD_CHAR.U.asTypeOf(UInt((SYMB_WIDTH+1).W))+alphaDivd-alphaDvdr)%FIELD_CHAR.U
+    val alphaDiff = modulo(FIELD_CHAR.U.asTypeOf(UInt((SYMB_WIDTH+1).W))+alphaDivd-alphaDvdr,FIELD_CHAR)
     val gfDivVal = Wire(UInt(SYMB_WIDTH.W))
     when(dividend === 0.U) {
       gfDivVal := 0.U
@@ -340,7 +341,7 @@ case class Config(
 
   def gfPow(x : UInt, degree : UInt) : UInt = {
     val alpha = symbToAlpha(x)
-    val alphaPow = (alpha * degree) % FIELD_CHAR.U
+    val alphaPow = modulo(alpha * degree, FIELD_CHAR)
     val xDegree = alphaToSymb(alphaPow)
     xDegree
   }

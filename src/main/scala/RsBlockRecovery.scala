@@ -123,7 +123,7 @@ class RsBlockRecovery(c: Config) extends Module {
 
   // Shift enable
   for(i <- 0 until LOOP_LIMIT) {
-    errPosAxis(i) := errPosVec(i) % c.BUS_WIDTH.U
+    errPosAxis(i) := RsUtil.modulo(errPosVec(i), c.BUS_WIDTH)
     when(errPosVec(i) < cntr) {
       shiftEnableVec(i) := errPosSel(i)
     }.otherwise{
