@@ -156,7 +156,6 @@ object GenRsBlockRecovery extends App {
     case Some(cmdConfig) =>
       JsonHandler.writeToFile(cmdConfig, "rs.json")
       val c = new Config(cmdConfig)
-      //val c = JsonReader.readConfig(projectRoot + "/rs.json")
       ChiselStage.emitSystemVerilogFile(new RsBlockRecovery(c), Array())
     case None =>
       sys.exit(1)      

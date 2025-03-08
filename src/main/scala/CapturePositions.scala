@@ -22,7 +22,7 @@ class CapturePositions(c:Config) extends Module {
   // bit vector where bits are asserted
   ////////////////////////////////
   val PosNum = if(c.T_LEN > c.chienErrBitPosTermsPerCycle) c.chienErrBitPosTermsPerCycle else c.T_LEN
-  val extrPos = Module(new ExtractPositions(c.chienErrBitPosTermsPerCycle, PosNum, 4))
+  val extrPos = Module(new ExtractPositions(c.chienErrBitPosTermsPerCycle, PosNum, c.chienBitPosPipeIntrvl))
 
   val numStages = extrPos.numStages + 1
 

@@ -30,11 +30,11 @@ case class Config(
   val decoderSingleClock = if(CLOCK_RATION == 1.0) true else false
   val MSG_DURATION_CORE = math.ceil(MSG_DURATION/CLOCK_RATION).toInt
 
-  def calcNumStages(comboLen: Int, pipelineInterval: Int): Int = {
-    require(comboLen > 0 && pipelineInterval > 0,
-      s"Both comboLen ($comboLen) and pipelineInterval ($pipelineInterval) must be positive."
+  def calcNumStages(inWidth: Int, pipelineInterval: Int): Int = {
+    require(inWidth > 0 && pipelineInterval > 0,
+      s"Both inWidth ($inWidth) and pipelineInterval ($pipelineInterval) must be positive."
     )
-    (comboLen + pipelineInterval - 1) / pipelineInterval
+    (inWidth + pipelineInterval - 1) / pipelineInterval
   }
 
   def computeTermsAndLatency(LEN: Int, MSG_DURATION_CORE: Int, Incr: Int=1): (Int, Int) = {
@@ -87,6 +87,7 @@ case class Config(
 
   val chienBitPosPipeIntrvl = 10
   val chienBitPosPipeNumStages = calcNumStages(chienErrBitPosTermsPerCycle, chienBitPosPipeIntrvl)
+
   val chienBitPosLatencyFull = chienBitPosPipeNumStages + 1 + 1 + math.ceil(FIELD_CHAR/chienErrBitPosTermsPerCycle).toInt
 
   val chienErrBitPosLatencyFull = chienErrBitPosShiftLatency + 1
@@ -195,11 +196,12 @@ case class Config(
   println(s"REDUNDANCY                    = $REDUNDANCY")
   println(s"T_LEN                         = $T_LEN")
   println(s"POLY                          = $POLY")
+  println(s"FCR                           = $FCR")
   println(s"=== Decoder config === ")
-  println(s"AXIS_CLOCK                    = $AXIS_CLOCK")
+  //println(s"AXIS_CLOCK                  = $AXIS_CLOCK")
   //println(s"CORE_CLOCK                  = $CORE_CLOCK")
   //println(s"CLOCK_RATION                = $CLOCK_RATION")
-  println(s"decoderSingleClock            = $decoderSingleClock")
+  //println(s"decoderSingleClock          = $decoderSingleClock")
   println(s"MSG_DURATION                  = $MSG_DURATION")
   //println(s"MSG_DURATION_CORE           = $MSG_DURATION_CORE")
   println(s"Decoder latency               = $decoderLatencyFull")
@@ -287,9 +289,8 @@ case class Config(
   val GENERATOR_POWER = genSymbToAlpha(genAlphaToSymb())(GENERATOR)
   val FCR_SYMB = genAlphaToSymb()(FCR)
 
-  println(s"GENERATOR_POWER = $GENERATOR_POWER")
-  println(s"FCR             = $FCR")
-  println(s"FCR_SYMB        = $FCR_SYMB")
+  //println(s"GENERATOR_POWER = $GENERATOR_POWER")
+  //println(s"FCR_SYMB        = $FCR_SYMB")
   
   def gfMult (symbA: UInt, symbB: UInt) : UInt = {
     val mult = Wire(UInt(SYMB_WIDTH.W))
