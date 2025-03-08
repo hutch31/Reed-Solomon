@@ -52,4 +52,4 @@ runs:
     - name: Run Chisel Build
       shell: bash
       run: |
-        sbt "runMain Rs.GenRsBlockRecovery --axis-clock ${{ inputs.axis_clock }} --core-clock ${{ inputs.core_clock }} --symb-width ${{ inputs.symb_width }} --bus-width ${{ inputs.bus_width }} --poly ${{ inputs.poly }} --fcr ${{ inputs.fcr }} --n-len ${{ inputs.n_len }} --k-len ${{ inputs.k_len }}"
+        sbt "runMain Rs.GenRsBlockRecovery --axis-clock ${{ inputs.axis_clock }} --core-clock ${{ inputs.core_clock }} --symb-width-in-bits ${{ inputs.symb_width }} --bus-width-in-symb ${{ inputs.bus_width }} --poly ${{ inputs.poly }} --fcr ${{ inputs.fcr }} --n-len ${{ inputs.n_len }} --k-len ${{ inputs.k_len }}"

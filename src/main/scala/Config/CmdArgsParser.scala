@@ -39,48 +39,48 @@ object ConfigParser {
       head("ChiselRSConfig", "1.0"),
 
       opt[Double]("axis-clock")
-        .required()
+        .optional()
         .action((x, c) => c.copy(AXIS_CLOCK = x))
-        .text("AXIS_CLOCK is a required parameter"),
+        .text("axis-clock defines the frequency of the input interface"),
 
       opt[Double]("core-clock")
-        .required()
+        .optional()
         .action((x, c) => c.copy(CORE_CLOCK = x))
-        .text("CORE_CLOCK is a required parameter"),
+        .text("core-clock defines the frequency of the core clock that is used for RsBm, RsChien, RsForney."),
 
-      opt[Int]("symb-width")
+      opt[Int]("symb-width-in-bits")
         .required()
         .action((x, c) => c.copy(SYMB_WIDTH = x))
-        .text("SYMB_WIDTH is a required parameter"),
+        .text("symb-width-in-bits defines the width of the symbol in bits"),
 
-      opt[Int]("bus-width")
+      opt[Int]("bus-width-in-symb")
         .required()
         .action((x, c) => c.copy(BUS_WIDTH = x))
-        .text("BUS_WIDTH is a required parameter"),
+        .text("bus-width-in-symb defines the input bus width in symbols"),
 
       opt[Int]("poly")
         .required()
         .action((x, c) => c.copy(POLY = x))
-        .text("POLY is a required parameter"),
+        .text("poly defines the polynomial you use to create a GF field"),
 
       opt[Int]("fcr")
         .required()
         .action((x, c) => c.copy(FCR = x))
-        .text("FCR is a required parameter"),
+        .text("fcr is a first consecutive root"),
 
       opt[Int]("n-len")
         .required()
         .action((x, c) => c.copy(N_LEN = x))
-        .text("N_LEN is a required parameter"),
+        .text("n-len specifies the length of the encoded message"),
 
       opt[Int]("k-len")
         .required()
         .action((x, c) => c.copy(K_LEN = x))
-        .text("K_LEN is a required parameter")
+        .text("k-len specifies the length of the original message")
     )
   }
 
   def parse(args: Array[String]): Option[CmdConfig] = {
-    OParser.parse(parser, args, CmdConfig(0.0, 0.0, 0, 0, 0, 0, 0, 0))
+    OParser.parse(parser, args, CmdConfig(156.25, 156.25, 0, 0, 0, 0, 0, 0))
   }
 }

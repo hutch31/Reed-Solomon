@@ -24,7 +24,6 @@ class ExtractPositions(val InWidth: Int, val PosNum: Int, val pipelineInterval: 
 
   // Number of pipeline stages required
   val numStages = (InWidth + pipelineInterval - 1) / pipelineInterval
-  
   val prefSumOut = Wire(Vec(InWidth, UInt(log2Ceil(InWidth).W)))
   val prefSumVldOut = Wire(Bool())
   
@@ -33,8 +32,11 @@ class ExtractPositions(val InWidth: Int, val PosNum: Int, val pipelineInterval: 
 
   val prefSumQ = Reg(Vec(numStages, Vec(InWidth, UInt(log2Ceil(InWidth).W))))
   val vldQ = RegInit(VecInit(Seq.fill(numStages)(false.B)))
-  
-  // Compute prefix sum with pipeline registers
+
+  // Pipeline prefix sum calculation and 
+  // io.in that defines the bit position of error.
+  // Output vectors inOut and prefSumOut are used
+  // to evaluate errors positions.
   for (stage <- 0 until numStages+1) {
 
     val prefSumInit = Wire(Vec(InWidth, UInt(log2Ceil(InWidth).W)))
@@ -42,9 +44,9 @@ class ExtractPositions(val InWidth: Int, val PosNum: Int, val pipelineInterval: 
 
     if(stage == 0) {
       for (i <- 0 until InWidth) {
-        prefSumInit(i) := Mux(io.in.bits(i), 1.U, 0.U)
+        //prefSumInit(i) := Mux(io.in.bits(i), 1.U, 0.U)
+        prefSumInit(i) := io.in.bits(i)
       }
-      //prefSumInit := VecInit(inVec.map(b => Mux(b, 1.U, 0.U)))
     } else {
       prefSumInit := prefSumQ(stage-1)
     }
@@ -92,12 +94,10 @@ class ExtractPositions(val InWidth: Int, val PosNum: Int, val pipelineInterval: 
     outTkeepReg(i) := false.B
   }
 
-  // Assign positions
-  // InWidth = chienErrBitPosTermsPerCycle
-  // PosNum = T_LEN
+  // Find all positions 
   for (i <- 0 until InWidth) {
     when(inOut(i) && prefSumOut(i) < PosNum.U) {
-      val index = prefSumOut(i)(log2Ceil(InWidth)-1, 0) // Truncate prefSumOut(i) to the correct width
+      val index = prefSumOut(i)(log2Ceil(PosNum)-1, 0) // Truncate prefSumOut(i) to the correct width
       positionsReg(index) := i.U
       outTkeepReg(index) := true.B
     }
