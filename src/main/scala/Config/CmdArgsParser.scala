@@ -38,15 +38,15 @@ object ConfigParser {
         .action((x, c) => c.copy(CORE_CLOCK = x))
         .text("CORE_CLOCK is a required parameter"),
 
-      opt[Int]("symb-width")
+      opt[Int]("symb-width-in-bits")
         .required()
         .action((x, c) => c.copy(SYMB_WIDTH = x))
         .text("SYMB_WIDTH is a required parameter"),
 
-      opt[Int]("bus-width")
+      opt[Int]("bus-width-in-symb")
         .required()
         .action((x, c) => c.copy(BUS_WIDTH = x))
-        .text("BUS_WIDTH is a required parameter"),
+        .text("BUS_WIDTH defines the input bus width in symbols"),
 
       opt[Int]("poly")
         .required()
