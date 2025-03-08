@@ -1,3 +1,11 @@
+# ----------------------------------------------------------------------
+#  Copyright (c) 2024 Egor Smirnov
+#
+#  Licensed under terms of the MIT license
+#  See https://github.com/egorman44/Reed-Solomon/blob/main/LICENSE
+#    for license terms
+# ----------------------------------------------------------------------
+
 from reedsolo import rs_encode_msg
 from reedsolo import rs_calc_syndromes
 from reedsolo import rs_find_error_locator
