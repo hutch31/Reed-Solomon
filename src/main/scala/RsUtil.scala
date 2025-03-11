@@ -10,7 +10,7 @@ object RsUtil {
     else (false, -1)
   }
 
-  def modulo(a : UInt, b : Int, mtype : String = "barrett") : UInt = {
+  def modulo(a : UInt, b : Int, mtype : String = "default") : UInt = {
     mtype match {
       case "barrett" =>
         val bitWidth = if ((a.getWidth & 1) == 1) a.getWidth / 2 + 1 else a.getWidth / 2
